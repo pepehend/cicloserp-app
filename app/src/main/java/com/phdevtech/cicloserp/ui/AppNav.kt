@@ -98,7 +98,7 @@ object Route {
     const val QUOTE = "orcamento/{id}"
     const val ORDER = "os/{id}"
     const val QUESTIONNAIRE = "os/{id}/questionario/{qid}"
-    const val REPORT = "os/{id}/relatorio"
+    const val OS_PAGE = "os/{id}/p/{page}"
     const val PHOTOS = "os/{id}/fotos"
     fun order(id: Int) = "os/$id"
 }
@@ -188,17 +188,27 @@ fun LoggedInApp(state: AuthState.LoggedIn) {
         composable(Route.ORDER, listOf(navArgument("id") { type = NavType.IntType })) { e ->
             val id = e.arguments!!.getInt("id")
             OrderScreen(
-                me, id, onBack = { nav.popBackStack() },
-                onQuestionnaire = { nav.navigate("os/$id/questionario/$it") },
-                onReport = { nav.navigate("os/$id/relatorio") },
-                onPhotos = { nav.navigate("os/$id/fotos") },
+                me, id,
+                com.phdevtech.cicloserp.ui.order.OrderNav(
+                    onBack = { nav.popBackStack() },
+                    onQuestionnaire = { nav.navigate("os/$id/questionario/$it") },
+                    onPhotos = { nav.navigate("os/$id/fotos") },
+                    onPage = { nav.navigate("os/$id/p/$it") },
+                    onCustomer = if (me.can("clientes")) ({ cid -> nav.navigate("cliente/$cid") }) else null,
+                ),
             )
         }
         composable(Route.QUESTIONNAIRE, listOf(navArgument("id") { type = NavType.IntType }, navArgument("qid") { type = NavType.IntType })) { e ->
             QuestionnaireScreen(me, e.arguments!!.getInt("id"), e.arguments!!.getInt("qid"), onBack = { nav.popBackStack() })
         }
-        composable(Route.REPORT, listOf(navArgument("id") { type = NavType.IntType })) { e ->
-            ReportScreen(me, e.arguments!!.getInt("id"), onBack = { nav.popBackStack() })
+        composable(Route.OS_PAGE, listOf(navArgument("id") { type = NavType.IntType }, navArgument("page") { type = NavType.StringType })) { e ->
+            val id = e.arguments!!.getInt("id")
+            when (val page = e.arguments!!.getString("page").orEmpty()) {
+                "pausas" -> com.phdevtech.cicloserp.ui.order.PausesScreen(id, onBack = { nav.popBackStack() })
+                "pecas" -> com.phdevtech.cicloserp.ui.order.OrderItemsScreen(id, onBack = { nav.popBackStack() })
+                "orcamentos" -> com.phdevtech.cicloserp.ui.order.OrderQuotesScreen(onBack = { nav.popBackStack() })
+                else -> ReportScreen(me, id, onBack = { nav.popBackStack() }, page = page)
+            }
         }
         composable(Route.PHOTOS, listOf(navArgument("id") { type = NavType.IntType })) { e ->
             PhotosScreen(me, e.arguments!!.getInt("id"), onBack = { nav.popBackStack() })
