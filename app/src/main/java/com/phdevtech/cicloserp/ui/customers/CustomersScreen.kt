@@ -1,4 +1,9 @@
 package com.phdevtech.cicloserp.ui.customers
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import com.phdevtech.cicloserp.ui.common.LabeledCheck
+import com.phdevtech.cicloserp.ui.common.SearchCard
+import com.phdevtech.cicloserp.ui.common.PageHeader
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.phdevtech.cicloserp.data.model.Customer
+import com.phdevtech.cicloserp.ui.common.AppCard
 import com.phdevtech.cicloserp.ui.common.BackBar
+import com.phdevtech.cicloserp.ui.common.AppCard
 import com.phdevtech.cicloserp.ui.common.EmptyBox
 import com.phdevtech.cicloserp.ui.common.ErrorBox
 import com.phdevtech.cicloserp.ui.common.InfoRow
@@ -56,11 +63,11 @@ fun CustomersScreen(onOpen: (Int) -> Unit, pad: PaddingValues) {
     LaunchedEffect(query, inactive) { loader.load(debounceMs = if (query.isEmpty()) 0 else 350) }
 
     Column(Modifier.fillMaxSize().padding(pad)) {
-        SearchField(query, { query = it }, "Nome, CNPJ/CPF, cidade, telefone ou e-mail")
-        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Checkbox(inactive, { inactive = it })
-            Text("Mostrar inativos", style = MaterialTheme.typography.bodyMedium)
+        PageHeader("Clientes", "Cadastre pelo CNPJ e os dados vêm da Receita Federal.")
+        SearchCard(query, { query = it }, "Nome, CNPJ/CPF, cidade, telefone ou e-mail") {
+            LabeledCheck(inactive, { inactive = it }, "Mostrar inativos")
         }
+        Spacer(Modifier.height(8.dp))
         PullToRefreshBox(loader.refreshing, { loader.load(pull = true) }, Modifier.fillMaxSize()) {
             when (val s = loader.state) {
                 Load.Loading -> LoadingBox()
@@ -76,7 +83,7 @@ fun CustomersScreen(onOpen: (Int) -> Unit, pad: PaddingValues) {
 
 @Composable
 private fun CustomerCard(c: Customer, onClick: () -> Unit) {
-    Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    AppCard(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(Modifier.padding(14.dp)) {
             Text(c.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val line = listOfNotNull(c.document?.let(Fmt::doc), c.cityState, c.phone).joinToString(" · ")

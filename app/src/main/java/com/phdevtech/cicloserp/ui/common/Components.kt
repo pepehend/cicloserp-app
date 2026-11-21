@@ -109,7 +109,7 @@ fun EmptyBox(message: String, modifier: Modifier = Modifier) {
 /** Cartão de uma OS nas listas. */
 @Composable
 fun OrderCard(o: OrderSummary, onClick: () -> Unit, showTechnician: Boolean = false, showDate: Boolean = false) {
-    Card(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    AppCard(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("OS #${o.id}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
@@ -174,7 +174,7 @@ fun InfoRow(label: String, value: String?, modifier: Modifier = Modifier) {
 @Composable
 fun StatCard(label: String, value: String, modifier: Modifier = Modifier, color: Color = Color.Unspecified, onClick: (() -> Unit)? = null) {
     val m = if (onClick != null) modifier.clickable(onClick = onClick) else modifier
-    Card(m) {
+    AppCard(m) {
         Column(Modifier.padding(12.dp)) {
             Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = color)
             Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -185,7 +185,7 @@ fun StatCard(label: String, value: String, modifier: Modifier = Modifier, color:
 /** Cartão com título, usado nas seções das fichas. */
 @Composable
 fun SectionCard(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Card(modifier.fillMaxWidth()) {
+    AppCard(modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.padding(3.dp))
@@ -218,6 +218,65 @@ class Loader<T>(private val scope: kotlinx.coroutines.CoroutineScope, private va
                 Load.Error(e.message ?: "Erro ao carregar")
             }
             refreshing = false
+        }
+    }
+}
+
+/** Cartão branco com borda fina e cantos arredondados, como no sistema web. */
+@Composable
+fun AppCard(
+    modifier: Modifier = Modifier,
+    borderColor: Color? = null,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
+    Card(
+        modifier,
+        shape = RoundedCornerShape(16.dp),
+        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor ?: MaterialTheme.colorScheme.outlineVariant),
+        content = content,
+    )
+}
+
+/** Título grande da página com texto de apoio, como "Clientes / Cadastre pelo CNPJ…". */
+@Composable
+fun PageHeader(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** Quadradinho colorido com ícone (atalhos do início, menu lateral, indicadores). */
+@Composable
+fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 44.dp) {
+    Box(modifier.size(size).background(color.copy(alpha = 0.14f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+        Icon(icon, null, Modifier.size(size * 0.5f), tint = color)
+    }
+}
+
+/** Caixa de seleção com texto ao lado. */
+@Composable
+fun LabeledCheck(checked: Boolean, onChange: (Boolean) -> Unit, label: String, modifier: Modifier = Modifier) {
+    Row(modifier.clickable { onChange(!checked) }.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Checkbox(checked, onChange)
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** Cartão de busca das listas: rótulo "Buscar", campo e filtros (conteúdo extra). */
+@Composable
+fun SearchCard(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier, extra: @Composable () -> Unit = {}) {
+    AppCard(modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text("Buscar", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
+            androidx.compose.material3.OutlinedTextField(
+                value = value, onValueChange = onChange, singleLine = true,
+                placeholder = { Text(hint, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            )
+            extra()
         }
     }
 }

@@ -42,7 +42,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.phdevtech.cicloserp.ui.common.IconTile
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -172,42 +175,58 @@ private fun Shell(
     ModalNavigationDrawer(
         drawerState = drawer,
         drawerContent = {
-            ModalDrawerSheet {
+            ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surface) {
+                // Cabeçalho vermelho com avatar, nome, perfil e Sair (igual ao app do técnico web)
                 Row(
-                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary).padding(16.dp),
+                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary).padding(horizontal = 16.dp, vertical = 20.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f), CircleShape), contentAlignment = Alignment.Center) {
-                        Text(initials(me.name), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge)
+                    Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f), CircleShape), contentAlignment = Alignment.Center) {
+                        Text(initials(me.name), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                     }
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                        Text(me.name, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
-                        Text(if (me.isAdmin) "Administrador" else me.profileName ?: "Usuário", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.bodySmall)
+                        Text(me.name, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        Text(if (me.isAdmin) "Administrador" else me.profileName ?: "Usuário", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f), style = MaterialTheme.typography.bodySmall)
                     }
-                    IconButton(onClick = { scope.launch { drawer.close(); repo.logout() } }) {
-                        Icon(Icons.AutoMirrored.Outlined.Logout, "Sair", tint = MaterialTheme.colorScheme.onPrimary)
+                    Column(
+                        Modifier.clickable { scope.launch { drawer.close(); repo.logout() } }
+                            .background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f), RoundedCornerShape(10.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(Icons.AutoMirrored.Outlined.Logout, null, tint = MaterialTheme.colorScheme.onPrimary)
+                        Text("Sair", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelSmall)
                     }
                 }
                 Spacer(Modifier.padding(4.dp))
                 entries.forEach { e ->
-                    NavigationDrawerItem(
-                        label = { Text(e.label) }, icon = { Icon(e.icon, null) },
-                        selected = e.route == current,
-                        onClick = { scope.launch { drawer.close() }; if (e.route != current) go(e.route) },
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                    )
+                    val selected = e.route == current
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
+                            .background(if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f) else Color.Transparent, RoundedCornerShape(12.dp))
+                            .clickable { scope.launch { drawer.close() }; if (!selected) go(e.route) }
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        IconTile(e.icon, MaterialTheme.colorScheme.primary, size = 36.dp)
+                        Text(e.label, Modifier.padding(start = 14.dp), style = MaterialTheme.typography.bodyLarge)
+                    }
                 }
             }
         },
     ) {
-        Scaffold(topBar = {
-            TopAppBar(
-                title = { Text(entries.firstOrNull { it.route == current }?.label ?: "CiclosERP") },
-                navigationIcon = { IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(Icons.Outlined.Menu, "Menu") } },
-            )
-        }) { pad -> content(pad) }
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            topBar = {
+                // Só o botão do menu (e o atalho do início nas telas de módulo), sem título: o título fica na página
+                TopAppBar(
+                    title = {},
+                    colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                    navigationIcon = { IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(Icons.Outlined.Menu, "Menu") } },
+                    actions = { if (current != Route.HOME) IconButton(onClick = { go(Route.HOME) }) { Icon(Icons.Outlined.Home, "Início") } },
+                )
+            },
+        ) { pad -> content(pad) }
     }
 }
-
 private fun initials(name: String): String =
     name.trim().split(' ').filter { it.isNotEmpty() }.take(2).joinToString("") { it.first().uppercase() }.ifEmpty { "?" }

@@ -1,4 +1,6 @@
 package com.phdevtech.cicloserp.ui.quotes
+import com.phdevtech.cicloserp.ui.common.SearchCard
+import com.phdevtech.cicloserp.ui.common.PageHeader
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,7 +42,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.phdevtech.cicloserp.data.model.QuoteRow
 import com.phdevtech.cicloserp.data.model.QuotesPage
+import com.phdevtech.cicloserp.ui.common.AppCard
 import com.phdevtech.cicloserp.ui.common.BackBar
+import com.phdevtech.cicloserp.ui.common.AppCard
 import com.phdevtech.cicloserp.ui.common.EmptyBox
 import com.phdevtech.cicloserp.ui.common.ErrorBox
 import com.phdevtech.cicloserp.ui.common.InfoRow
@@ -82,12 +86,13 @@ fun QuotesScreen(onOpen: (Int) -> Unit, pad: PaddingValues) {
             is Load.Ok -> {
                 val page = s.data
                 LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item { PageHeader("Orçamentos") }
                     item { Indicators(page, status) { status = if (status == it) "" else it } }
-                    item { SearchField(query, { query = it }, "Nº, cliente, lead ou código externo") }
+                    item { SearchCard(query, { query = it }, "Nº, cliente, lead ou código externo") }
                     item {
                         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                            SegmentedButton(!kanban, { kanban = false }, SegmentedButtonDefaults.itemShape(0, 2)) { Text("Lista") }
-                            SegmentedButton(kanban, { kanban = true }, SegmentedButtonDefaults.itemShape(1, 2)) { Text("Kanban") }
+                            SegmentedButton(!kanban, { kanban = false }, SegmentedButtonDefaults.itemShape(0, 2), colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primaryContainer, activeContentColor = MaterialTheme.colorScheme.primary)) { Text("Lista") }
+                            SegmentedButton(kanban, { kanban = true }, SegmentedButtonDefaults.itemShape(1, 2), colors = SegmentedButtonDefaults.colors(activeContainerColor = MaterialTheme.colorScheme.primaryContainer, activeContentColor = MaterialTheme.colorScheme.primary)) { Text("Kanban") }
                         }
                     }
                     item {
@@ -121,7 +126,7 @@ private fun Indicators(page: QuotesPage, selected: String, onFilter: (String) ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { (t, c) ->
                     val (label, n, code) = t
-                    Card(Modifier.weight(1f).let { if (code.isNotEmpty()) it.clickable { onFilter(code) } else it }) {
+                    AppCard(Modifier.weight(1f).let { if (code.isNotEmpty()) it.clickable { onFilter(code) } else it }, borderColor = c) {
                         Column(Modifier.padding(12.dp).fillMaxWidth(), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
                             Text("$n", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = c)
                             Text(label, style = MaterialTheme.typography.bodySmall, color = if (code.isNotEmpty() && code == selected) c else MaterialTheme.colorScheme.onSurface)
@@ -136,7 +141,7 @@ private fun Indicators(page: QuotesPage, selected: String, onFilter: (String) ->
 
 @Composable
 private fun QuoteCard(q: QuoteRow, page: QuotesPage, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Card(modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    AppCard(modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(Modifier.padding(14.dp)) {
             Row {
                 Text("#${q.id}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)

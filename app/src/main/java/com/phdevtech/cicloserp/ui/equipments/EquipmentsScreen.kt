@@ -1,4 +1,8 @@
 package com.phdevtech.cicloserp.ui.equipments
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import com.phdevtech.cicloserp.ui.common.SearchCard
+import com.phdevtech.cicloserp.ui.common.PageHeader
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.phdevtech.cicloserp.data.model.Equipment
+import com.phdevtech.cicloserp.ui.common.AppCard
 import com.phdevtech.cicloserp.ui.common.EmptyBox
 import com.phdevtech.cicloserp.ui.common.ErrorBox
 import com.phdevtech.cicloserp.ui.common.InfoRow
@@ -44,7 +49,9 @@ fun EquipmentsScreen(pad: PaddingValues) {
     LaunchedEffect(query) { loader.load(debounceMs = if (query.isEmpty()) 0 else 350) }
 
     Column(Modifier.fillMaxSize().padding(pad)) {
-        SearchField(query, { query = it }, "Nome, marca, modelo, série ou cliente")
+        PageHeader("Equipamentos", "Equipamentos dos seus clientes, com série e garantia.")
+        SearchCard(query, { query = it }, "Nome, marca, modelo, série ou cliente")
+        Spacer(Modifier.height(8.dp))
         PullToRefreshBox(loader.refreshing, { loader.load(pull = true) }, Modifier.fillMaxSize()) {
             when (val s = loader.state) {
                 Load.Loading -> LoadingBox()
@@ -60,7 +67,7 @@ fun EquipmentsScreen(pad: PaddingValues) {
 
 @Composable
 private fun EquipmentCard(e: Equipment) {
-    Card(Modifier.fillMaxWidth()) {
+    AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Text(e.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             InfoRow("Cliente", e.customerName)

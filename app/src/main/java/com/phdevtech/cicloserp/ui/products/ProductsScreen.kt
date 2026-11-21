@@ -1,4 +1,9 @@
 package com.phdevtech.cicloserp.ui.products
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import com.phdevtech.cicloserp.ui.common.LabeledCheck
+import com.phdevtech.cicloserp.ui.common.SearchCard
+import com.phdevtech.cicloserp.ui.common.PageHeader
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.phdevtech.cicloserp.data.model.Product
+import com.phdevtech.cicloserp.ui.common.AppCard
 import com.phdevtech.cicloserp.ui.common.EmptyBox
 import com.phdevtech.cicloserp.ui.common.ErrorBox
 import com.phdevtech.cicloserp.ui.common.Load
@@ -51,11 +57,17 @@ fun ProductsScreen(service: Boolean, pad: PaddingValues, onOpen: (Product) -> Un
     LaunchedEffect(type, query, inactive, low) { loader.load(debounceMs = if (query.isEmpty()) 0 else 350) }
 
     Column(Modifier.fillMaxSize().padding(pad)) {
-        SearchField(query, { query = it }, if (service) "Buscar serviço" else "Nome, marca, SKU, código ou localização")
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (!service) FilterChip(low, { low = !low }, { Text("Estoque baixo") })
-            FilterChip(inactive, { inactive = !inactive }, { Text("Mostrar inativos") })
+        PageHeader(
+            if (service) "Serviços" else "Produtos",
+            if (service) "Serviços que você presta, sem controle de estoque." else "Produtos que você vende e controla no estoque.",
+        )
+        SearchCard(query, { query = it }, if (service) "Nome ou código do serviço" else "Nome, marca, código (SKU, fabricante ou referência)") {
+            Row {
+                if (!service) LabeledCheck(low, { low = it }, "Abaixo do mínimo")
+                LabeledCheck(inactive, { inactive = it }, "Mostrar inativos")
+            }
         }
+        Spacer(Modifier.height(8.dp))
         PullToRefreshBox(loader.refreshing, { loader.load(pull = true) }, Modifier.fillMaxSize()) {
             when (val s = loader.state) {
                 Load.Loading -> LoadingBox()
@@ -71,7 +83,7 @@ fun ProductsScreen(service: Boolean, pad: PaddingValues, onOpen: (Product) -> Un
 
 @Composable
 private fun ProductCard(p: Product) {
-    Card(Modifier.fillMaxWidth()) {
+    AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp)) {
             Row {
                 Text(p.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
