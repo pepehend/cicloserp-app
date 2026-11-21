@@ -34,6 +34,7 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Navigation
 import androidx.compose.material.icons.outlined.Pause
@@ -118,6 +119,8 @@ class OrderNav(
     val onPhotos: () -> Unit,
     val onPage: (String) -> Unit,          // km | relato | assinar | pausas | pecas
     val onCustomer: ((Int) -> Unit)?,
+    val onEditWeb: (() -> Unit)? = null,
+    val onQuote: ((Int) -> Unit)? = null,
 )
 
 @Composable
@@ -164,6 +167,7 @@ fun OrderScreen(me: Me, id: Int, nav: OrderNav) {
                             o.customerPhone?.let { phone ->
                                 IconBtn(Icons.Outlined.Phone, "Ligar", size = 38.dp) { ctx.startActivity(Intent(Intent.ACTION_DIAL, "tel:${phone.filter { it.isDigit() || it == '+' }}".toUri())) }
                             }
+                            if (nav.onEditWeb != null && !o.isDone && me.can("app.switch")) IconBtn(Icons.Outlined.Edit, "Editar na versão completa", size = 38.dp, onClick = nav.onEditWeb)
                             IconBtn(Icons.Outlined.Share, "Compartilhar", size = 38.dp) {
                                 val text = listOfNotNull("Tarefa #${o.id} · ${o.customerName}", o.description, o.publicUrl).joinToString("\n")
                                 ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }, null))
@@ -263,7 +267,7 @@ private fun Line(icon: ImageVector, color: Color, onClick: (() -> Unit)? = null,
     }
 }
 
-private fun whenText(iso: String?): String {
+internal fun whenText(iso: String?): String {
     val dt = Fmt.parse(iso) ?: return "Sem agendamento"
     val day = if (dt.toLocalDate() == LocalDate.now()) "Hoje" else Fmt.date(iso)
     return "$day às ${Fmt.time(iso)}"
@@ -293,12 +297,10 @@ private fun DetailsTab(o: OrderDetail, nav: OrderNav, onReportTab: () -> Unit) {
                 Line(Icons.Outlined.Phone, Green, onClick = { ctx.startActivity(Intent(Intent.ACTION_DIAL, "tel:${phone.filter { it.isDigit() || it == '+' }}".toUri())) }) { Text(phone, color = Web.text, fontSize = 14.4.sp) }
             }
             Line(Icons.Outlined.CalendarMonth, Purple) { Text(whenText(o.scheduledAt), color = Web.text, fontSize = 14.4.sp) }
-            o.notes?.let { notes ->
-                Line(Icons.Outlined.Info, Web.muted, onClick = { orientation = !orientation }, trailing = {
-                    Icon(Icons.Outlined.KeyboardArrowDown, null, Modifier.size(20.dp), tint = Web.muted)
-                }) { Text("Orientação", color = Web.text, fontSize = 14.4.sp) }
-                if (orientation) Text(notes, Modifier.padding(start = 48.dp, bottom = 6.dp), color = Web.muted, fontSize = 14.4.sp)
-            }
+            Line(Icons.Outlined.Info, Web.muted, onClick = { orientation = !orientation }, trailing = {
+                Icon(if (orientation) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown, null, Modifier.size(20.dp), tint = Web.muted)
+            }) { Text("Orientação", color = Web.text, fontSize = 14.4.sp) }
+            if (orientation) Text(o.description.ifBlank { "—" }, Modifier.padding(start = 48.dp, bottom = 6.dp), color = Web.muted, fontSize = 14.4.sp)
             o.taskTypeName?.let { t ->
                 Line(Icons.Outlined.Sell, Orange) { Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Tipo: ") }; append(t) }, color = Web.text, fontSize = 14.4.sp) }
             }
@@ -306,22 +308,24 @@ private fun DetailsTab(o: OrderDetail, nav: OrderNav, onReportTab: () -> Unit) {
                 Line(Icons.Outlined.Settings, Web.muted) { Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("Equipamento: ") }; append(e) }, color = Web.text, fontSize = 14.4.sp) }
             }
         }
-        TkCard {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(Icons.Outlined.Schedule, null, Modifier.size(20.dp), tint = Web.text)
-                Text(buildAnnotatedString { withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(hhmm(o.hoursWork) + "h") } }, color = Web.text, fontSize = 14.sp)
-                Text("Tempo para execução", color = Web.muted, fontSize = 14.sp)
+        o.taskTypeDuration?.takeIf { it > 0 }?.let { min ->
+            TkCard {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Icon(Icons.Outlined.Schedule, null, Modifier.size(20.dp), tint = Web.text)
+                    Text("%02d:%02dh".format(min / 60, min % 60), color = Web.text, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("Tempo para execução", color = Web.muted, fontSize = 14.sp)
+                }
             }
         }
         TkCard(padding = 4.dp) {
             Column(Modifier.padding(horizontal = 8.dp)) {
-                NavRow(Icons.Outlined.Description, Blue, "Relatório de tarefa", onReportTab)
+                NavRow(Icons.Outlined.Description, Blue, "Relatório de tarefa", onClick = onReportTab)
                 Divider()
                 NavRow(Icons.Outlined.Person, Purple, "Detalhes do cliente") { o.customerId?.let { nav.onCustomer?.invoke(it) } }
                 Divider()
-                NavRow(Icons.Outlined.Inventory2, Orange, "Peças e Serviços") { nav.onPage("pecas") }
+                NavRow(Icons.Outlined.Inventory2, Orange, "Peças e Serviços", sub = if (o.items.isEmpty()) null else "${o.items.size} item(ns)" + if (o.itemsReview > 0) " · ${o.itemsReview} aguardando revisão" else "") { nav.onPage("pecas") }
                 Divider()
-                NavRow(Icons.Outlined.Sell, Red, "Orçamentos") { nav.onPage("orcamentos") }
+                NavRow(Icons.Outlined.Sell, Red, "Orçamentos", sub = if (o.quotes.isEmpty()) null else "${o.quotes.size} orçamento(s)") { nav.onPage("orcamentos") }
             }
         }
     }
@@ -331,10 +335,13 @@ private fun DetailsTab(o: OrderDetail, nav: OrderNav, onReportTab: () -> Unit) {
 private fun Divider() { Box(Modifier.fillMaxWidth().height(1.dp).background(Web.line)) }
 
 @Composable
-private fun NavRow(icon: ImageVector, color: Color, label: String, onClick: () -> Unit) {
+private fun NavRow(icon: ImageVector, color: Color, label: String, sub: String? = null, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         IconTile(icon, color, size = 34.dp)
-        Text(label, Modifier.weight(1f), color = Web.text, fontSize = 15.sp)
+        Column(Modifier.weight(1f)) {
+            Text(label, color = Web.text, fontSize = 15.sp)
+            if (sub != null) Text(sub, color = Web.muted, fontSize = 12.5.sp)
+        }
         Icon(Icons.Outlined.ChevronRight, null, Modifier.size(16.dp), tint = Web.muted)
     }
 }

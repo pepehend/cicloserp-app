@@ -192,11 +192,12 @@ fun QuestionnairesListScreen(me: Me, id: Int, onBack: () -> Unit, onOpen: (Int) 
                                 Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Icon(Icons.Outlined.Settings, null, Modifier.size(16.dp), tint = Web.accent)
-                                        Text(o.equipment ?: "Sem equipamento na OS", color = Web.text, fontSize = 14.sp)
+                                        Text(o.equipmentName ?: "Sem equipamento na OS", color = Web.text, fontSize = 14.sp)
                                     }
+                                    if (q.answered && q.answeredAt != null) Text(whenText(q.answeredAt), color = Web.text, fontSize = 12.8.sp)
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(50)).background(Web.line)) {
-                                            Box(Modifier.fillMaxWidth(pct / 100f).height(5.dp).clip(RoundedCornerShape(50)).background(if (st == "fin") Web.ok else Web.accent))
+                                            Box(Modifier.fillMaxWidth(pct / 100f).height(5.dp).clip(RoundedCornerShape(50)).background(Web.ok))
                                         }
                                         Text("$pct%", color = Web.text, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
                                         StateTag(st)

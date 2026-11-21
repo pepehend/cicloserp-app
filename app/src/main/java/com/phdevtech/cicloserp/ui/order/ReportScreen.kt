@@ -1,4 +1,8 @@
 package com.phdevtech.cicloserp.ui.order
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material.icons.outlined.DeleteOutline
 import com.phdevtech.cicloserp.ui.common.IconTile
 import com.phdevtech.cicloserp.data.model.OrderStatus
 import androidx.compose.material.icons.outlined.DirectionsCar
@@ -272,49 +276,186 @@ fun PausesScreen(id: Int, onBack: () -> Unit) {
         }
     }
 }
-/** Peças e Serviços lançados na OS (só consulta; lançar e revisar continua no sistema web). */
+/** Alternador Peça | Serviço (.tk-toggle): pílula cinza com o escolhido em destaque. */
 @Composable
-fun OrderItemsScreen(id: Int, onBack: () -> Unit) {
+private fun PillToggle(options: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit) {
+    Row(Modifier.clip(RoundedCornerShape(50)).background(Web.surface2).border(1.dp, Web.line, RoundedCornerShape(50)).padding(2.dp)) {
+        options.forEach { (v, label) ->
+            val on = v == selected
+            Text(
+                label, Modifier.clip(RoundedCornerShape(50)).background(if (on) Web.surface else Color.Transparent).clickable { onSelect(v) }.padding(horizontal = 18.dp, vertical = 7.dp),
+                color = if (on) Web.accent else Web.muted, fontSize = 13.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+            )
+        }
+    }
+}
+
+/**
+ * Peças e Serviços da OS (tkParts): itens lançados com remover e total, aviso de revisão e, se a OS pode ser alterada, o formulário
+ * Peça|Serviço do cadastro (ou item novo que vai para revisão), quantidade, valor unitário e "+ Adicionar" (POST so_item_save / so_item_delete).
+ */
+@Composable
+fun OrderItemsScreen(me: Me, id: Int, onBack: () -> Unit) {
     val vm = appViewModel(key = "itm$id") { OrderViewModel(it, id) }
+    val repo = com.phdevtech.cicloserp.ui.common.repository()
     val state by vm.state.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
     val snack = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { vm.load() }
+    LaunchedEffect(vm) { vm.messages.collect { snack.showSnackbar(it) } }
+    var kind by rememberSaveable { mutableStateOf("produto") }
+    var isNew by rememberSaveable { mutableStateOf(false) }
+    var picked by remember { mutableStateOf<com.phdevtech.cicloserp.data.model.Product?>(null) }
+    var desc by rememberSaveable { mutableStateOf("") }
+    var qty by rememberSaveable { mutableStateOf("1") }
+    var price by rememberSaveable { mutableStateOf("") }
+    var removing by remember { mutableStateOf<Int?>(null) }
+    var pickerOpen by remember { mutableStateOf(false) }
+    val noun = if (kind == "servico") "serviço" else "peça"
+
     when (val s = state) {
         Load.Loading -> LoadingBox()
         is Load.Error -> ErrorBox(s.message, onRetry = vm::load)
         is Load.Ok -> {
             val o = s.data
-            TkPage("Peças e Serviços", onBack, null, snack, locked = o.isDone) {
+            val editable = canChange(me, o)
+            TkPage("Peças e Serviços", onBack, null, snack, locked = !editable) {
+                if (o.itemsReview > 0) Row(
+                    Modifier.fillMaxWidth().padding(bottom = 10.dp).background(Web.warnSoft, RoundedCornerShape(14.dp)).border(1.dp, Web.warn.copy(alpha = 0.4f), RoundedCornerShape(14.dp)).padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.WarningAmber, null, Modifier.size(20.dp), tint = Web.warn)
+                    Text("${o.itemsReview} ${if (o.itemsReview == 1) "item novo aguarda" else "itens novos aguardam"} revisão do cadastro", color = Web.warn, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
                 WebCard(padding = 4.dp) {
-                    if (o.items.isEmpty()) Text("Nenhuma peça ou serviço lançado.", Modifier.fillMaxWidth().padding(20.dp), color = Web.muted, textAlign = TextAlign.Center)
+                    if (o.items.isEmpty()) Text("Nenhuma peça ou serviço lançado.", Modifier.fillMaxWidth().padding(vertical = 44.dp), color = Web.muted, fontSize = 16.sp, textAlign = TextAlign.Center)
                     o.items.forEach { i ->
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Column(Modifier.weight(1f)) {
-                                Text(i.description, color = Web.text, fontSize = 14.4.sp)
-                                Text(
-                                    (o.itemKinds[i.kind] ?: i.kind) + " · ${i.quantity.toString().removeSuffix(".0")} × ${Fmt.money(i.unitPrice)}" + if (i.review) " · aguardando revisão" else "",
-                                    color = Web.muted, fontSize = 12.5.sp,
-                                )
+                                Text(i.description, color = Web.text, fontWeight = FontWeight.Bold, fontSize = 14.8.sp)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text((o.itemKinds[i.kind] ?: i.kind) + " · ${i.quantity.toString().removeSuffix(".0")} × ${Fmt.money(i.unitPrice)}", color = Web.muted, fontSize = 12.5.sp)
+                                    if (i.review) Text("aguardando revisão", Modifier.clip(RoundedCornerShape(50)).background(Web.warnSoft).padding(horizontal = 8.dp, vertical = 1.dp), color = Web.warn, fontSize = 11.sp)
+                                }
                             }
-                            Text(Fmt.money(i.total), color = Web.text, fontSize = 14.sp)
+                            Text(Fmt.money(i.total), color = Web.text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            if (editable) IconBtn(Icons.Outlined.DeleteOutline, "Remover", size = 34.dp, bordered = false) { removing = i.id }
                         }
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(Web.line))
+                        Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(Web.line))
                     }
                     if (o.items.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(12.dp)) {
-                        Text("Total", Modifier.weight(1f), color = Web.text, fontWeight = FontWeight.Bold)
-                        Text(Fmt.money(o.itemsTotal), color = Web.text, fontWeight = FontWeight.Bold)
+                        Text("Total", Modifier.weight(1f), color = Web.text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text(Fmt.money(o.itemsTotal), color = Web.text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
+                }
+                if (editable) {
+                    Spacer(Modifier.height(10.dp))
+                    WebCard(padding = 14.dp) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            PillToggle(listOf("produto" to "Peça", "servico" to "Serviço"), kind) { kind = it; picked = null }
+                            val checkRow: @Composable () -> Unit = {
+                                val shape = RoundedCornerShape(10.dp)
+                                Row(
+                                    Modifier.fillMaxWidth().clip(shape).background(Web.surface).border(1.dp, if (isNew) Web.accent else Web.line, shape).clickable { isNew = !isNew }.padding(horizontal = 12.dp, vertical = 11.dp),
+                                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    Checkbox(isNew, null, Modifier.size(18.dp), colors = CheckboxDefaults.colors(checkedColor = Web.accent, checkmarkColor = Web.accentInk, uncheckedColor = Web.muted))
+                                    Text(if (kind == "servico") "O serviço não está cadastrado (vai para revisão)" else "A peça não está cadastrada (vai para revisão)", color = Web.text, fontSize = 14.4.sp, fontWeight = FontWeight.Medium)
+                                }
+                            }
+                            if (isNew) {
+                                checkRow()
+                                WebField(desc, { desc = it.take(200) }, Modifier.fillMaxWidth(), label = if (kind == "servico") "Nome do serviço novo" else "Nome da peça novo", placeholder = "Ex.: Rolamento 6205")
+                            } else {
+                                com.phdevtech.cicloserp.ui.common.WebPickBox(
+                                    picked?.let { p -> p.name + (p.mfrCode ?: p.sku)?.let { " · $it" }.orEmpty() }.orEmpty(), { pickerOpen = true }, Modifier.fillMaxWidth(),
+                                    label = if (kind == "servico") "Serviço do cadastro" else "Peça do cadastro", placeholder = "Digite para buscar",
+                                )
+                                checkRow()
+                            }
+                            WebField(qty, { qty = it.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(10) }, Modifier.fillMaxWidth(), label = "Quantidade", keyboardType = KeyboardType.Decimal)
+                            WebField(price, { price = it.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(12) }, Modifier.fillMaxWidth(), label = "Valor unitário (R$)", placeholder = "0,00", keyboardType = KeyboardType.Decimal)
+                            PillButton("+ Adicionar", {
+                                when {
+                                    !isNew && picked == null -> vm.message(if (kind == "servico") "Escolha o serviço do cadastro (ou marque que não está cadastrado)" else "Escolha a peça do cadastro (ou marque que não está cadastrada)")
+                                    isNew && desc.isBlank() -> vm.message("Informe o nome do item novo")
+                                    else -> vm.run(if (isNew) "Item novo incluído: aguarda revisão do cadastro" else "Item incluído") {
+                                        saveItem(id, kind, picked?.id.takeIf { !isNew }, if (isNew) desc.trim() else "", isNew, qty, price)
+                                    }.also { picked = null; desc = ""; price = ""; qty = "1"; isNew = false }
+                                }
+                            }, Modifier.fillMaxWidth(), filled = true, enabled = !busy)
+                        }
+                    }
+                }
+                removing?.let { itemId ->
+                    AlertDialog(
+                        onDismissRequest = { removing = null }, containerColor = Web.surface, title = { Text("Remover este item da tarefa?") },
+                        confirmButton = { TextButton({ removing = null; vm.run("Item removido") { deleteItem(itemId) } }) { Text("Remover", color = Web.danger) } },
+                        dismissButton = { TextButton({ removing = null }) { Text("Cancelar", color = Web.accent) } },
+                    )
+                }
+                if (pickerOpen) {
+                    var q by remember { mutableStateOf("") }
+                    var rows by remember { mutableStateOf<List<com.phdevtech.cicloserp.data.model.Product>?>(null) }
+                    LaunchedEffect(q, kind) {
+                        kotlinx.coroutines.delay(if (q.isEmpty()) 0 else 300)
+                        rows = runCatching { repo.products(kind, q, false, false) }.getOrDefault(emptyList())
+                    }
+                    AlertDialog(
+                        onDismissRequest = { pickerOpen = false }, containerColor = Web.surface, title = { Text(if (kind == "servico") "Escolher serviço" else "Escolher peça") },
+                        text = {
+                            Column {
+                                WebField(q, { q = it }, Modifier.fillMaxWidth(), placeholder = "Digite para buscar")
+                                Box(Modifier.height(300.dp).padding(top = 8.dp)) {
+                                    if (rows == null) LoadingBox() else if (rows!!.isEmpty()) Text("Nada encontrado.", color = Web.muted) else androidx.compose.foundation.lazy.LazyColumn {
+                                        items(rows!!.size) { idx ->
+                                            val p = rows!![idx]
+                                            Column(Modifier.fillMaxWidth().clickable {
+                                                picked = p; pickerOpen = false
+                                                if (p.salePrice > 0) price = "%.2f".format(p.salePrice).replace('.', ',')
+                                            }.padding(vertical = 10.dp)) {
+                                                Text(p.name, color = Web.text, fontSize = 15.sp)
+                                                Text(listOfNotNull(p.mfrCode ?: p.sku, Fmt.money(p.salePrice)).joinToString(" · "), color = Web.muted, fontSize = 12.5.sp)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        confirmButton = {}, dismissButton = { TextButton({ pickerOpen = false }) { Text("Cancelar", color = Web.accent) } },
+                    )
                 }
             }
         }
     }
 }
 
-/** Orçamentos ligados à OS: a lista fica no sistema web (aqui só o aviso). */
+/** Orçamentos ligados à OS (D.quotes): "Orçamento #n", relação e situação, total à direita; toca para abrir o orçamento. */
 @Composable
-fun OrderQuotesScreen(onBack: () -> Unit) {
+fun OrderQuotesScreen(id: Int, onBack: () -> Unit, onOpen: ((Int) -> Unit)?) {
+    val vm = appViewModel(key = "oq$id") { OrderViewModel(it, id) }
+    val state by vm.state.collectAsStateWithLifecycle()
     val snack = remember { SnackbarHostState() }
-    TkPage("Orçamentos", onBack, null, snack) {
-        Text("Os orçamentos desta OS ficam em Orçamentos, no menu.", color = Web.muted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 20.dp))
+    LaunchedEffect(Unit) { vm.load() }
+    when (val s = state) {
+        Load.Loading -> LoadingBox()
+        is Load.Error -> ErrorBox(s.message, onRetry = vm::load)
+        is Load.Ok -> TkPage("Orçamentos", onBack, null, snack) {
+            WebCard(padding = 4.dp) {
+                if (s.data.quotes.isEmpty()) Text("Nenhum orçamento ligado a esta tarefa.", Modifier.fillMaxWidth().padding(vertical = 28.dp), color = Web.muted, fontSize = 15.sp, textAlign = TextAlign.Center)
+                s.data.quotes.forEach { q ->
+                    Row(
+                        Modifier.fillMaxWidth().let { if (onOpen != null) it.clickable { onOpen(q.id) } else it }.padding(horizontal = 12.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Orçamento #${q.id}", color = Web.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(listOfNotNull(q.relation, q.statusLabel).joinToString(" · "), color = Web.muted, fontSize = 13.sp)
+                        }
+                        Text(Fmt.money(q.total), color = Web.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    }
+                }
+            }
+        }
     }
 }

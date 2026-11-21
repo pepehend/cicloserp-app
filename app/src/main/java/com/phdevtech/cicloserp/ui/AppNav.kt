@@ -122,6 +122,7 @@ private val MENU = listOf(
 @Composable
 fun LoggedInApp(state: AuthState.LoggedIn) {
     val nav = rememberNavController()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val me = state.me
     val entries = MENU.filter { it.perm == null || me.can(it.perm) }
     val go: (String) -> Unit = { route ->
@@ -196,6 +197,7 @@ fun LoggedInApp(state: AuthState.LoggedIn) {
                     onPhotos = { nav.navigate("os/$id/fotos") },
                     onPage = { nav.navigate("os/$id/p/$it") },
                     onCustomer = if (me.can("clientes")) ({ cid -> nav.navigate("cliente/$cid") }) else null,
+                    onEditWeb = { openWeb(ctx, state.serverUrl, "#/ordem/$id") },
                 ),
             )
         }
@@ -206,8 +208,8 @@ fun LoggedInApp(state: AuthState.LoggedIn) {
             val id = e.arguments!!.getInt("id")
             when (val page = e.arguments!!.getString("page").orEmpty()) {
                 "pausas" -> com.phdevtech.cicloserp.ui.order.PausesScreen(id, onBack = { nav.popBackStack() })
-                "pecas" -> com.phdevtech.cicloserp.ui.order.OrderItemsScreen(id, onBack = { nav.popBackStack() })
-                "orcamentos" -> com.phdevtech.cicloserp.ui.order.OrderQuotesScreen(onBack = { nav.popBackStack() })
+                "pecas" -> com.phdevtech.cicloserp.ui.order.OrderItemsScreen(me, id, onBack = { nav.popBackStack() })
+                "orcamentos" -> com.phdevtech.cicloserp.ui.order.OrderQuotesScreen(id, onBack = { nav.popBackStack() }, onOpen = if (me.can("orcamentos")) ({ qid -> nav.navigate("orcamento/$qid") }) else null)
                 "questionarios" -> com.phdevtech.cicloserp.ui.order.QuestionnairesListScreen(me, id, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("os/$id/questionario/$it") })
                 else -> ReportScreen(me, id, onBack = { nav.popBackStack() }, page = page)
             }
@@ -290,3 +292,8 @@ private fun Shell(
 }
 private fun initials(name: String): String =
     name.trim().split(' ').filter { it.isNotEmpty() }.take(2).joinToString("") { it.first().uppercase() }.ifEmpty { "?" }
+
+/** Abre uma tela da versão completa (navegador) no mesmo servidor do app. */
+private fun openWeb(ctx: android.content.Context, server: String, hash: String) {
+    ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(server.trimEnd('/') + "/" + hash)))
+}

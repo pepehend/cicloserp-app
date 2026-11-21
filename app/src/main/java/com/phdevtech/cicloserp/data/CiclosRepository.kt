@@ -150,6 +150,18 @@ class CiclosRepository(private val api: ApiClient, private val store: SessionSto
         api.post("so_photo_add", buildJsonObject { put("id", id); put("image", dataUrl); put("caption", caption) })
     }
 
+    /** Lança peça ou serviço na OS (POST so_item_save): do cadastro ([productId]) ou item novo ([newItem], vai para revisão). */
+    suspend fun saveItem(id: Int, kind: String, productId: Int?, description: String, newItem: Boolean, quantity: String, unitPrice: String) {
+        api.post("so_item_save", buildJsonObject {
+            put("id", id); put("kind", kind); put("product_id", productId?.toString() ?: ""); put("description", description)
+            put("new_item", if (newItem) 1 else 0); put("quantity", quantity); put("unit_price", unitPrice)
+        })
+    }
+
+    suspend fun deleteItem(itemId: Int) {
+        api.post("so_item_delete", buildJsonObject { put("item_id", itemId) })
+    }
+
     /** Envia a OS digital por e-mail pelo servidor (POST so_send). */
     suspend fun sendOrder(id: Int, email: String) {
         api.post("so_send", buildJsonObject { put("id", id); put("kind", "os"); put("to", email.trim()) })
