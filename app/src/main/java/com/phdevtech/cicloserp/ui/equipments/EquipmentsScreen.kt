@@ -1,21 +1,15 @@
 package com.phdevtech.cicloserp.ui.equipments
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.Spacer
-import com.phdevtech.cicloserp.ui.common.SearchCard
-import com.phdevtech.cicloserp.ui.common.PageHeader
 
-import androidx.compose.foundation.clickable
-import com.phdevtech.cicloserp.ui.common.AddButton
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -26,22 +20,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.phdevtech.cicloserp.data.model.Equipment
-import com.phdevtech.cicloserp.ui.common.AppCard
-import com.phdevtech.cicloserp.ui.common.EmptyBox
-import com.phdevtech.cicloserp.ui.common.ErrorBox
-import com.phdevtech.cicloserp.ui.common.InfoRow
+import com.phdevtech.cicloserp.ui.common.AddButton
+import com.phdevtech.cicloserp.ui.common.Col
 import com.phdevtech.cicloserp.ui.common.Load
 import com.phdevtech.cicloserp.ui.common.Loader
-import com.phdevtech.cicloserp.ui.common.LoadingBox
-import com.phdevtech.cicloserp.ui.common.SearchField
+import com.phdevtech.cicloserp.ui.common.PageHeader
+import com.phdevtech.cicloserp.ui.common.TRow
+import com.phdevtech.cicloserp.ui.common.WebCard
+import com.phdevtech.cicloserp.ui.common.WebField
+import com.phdevtech.cicloserp.ui.common.WebTable
 import com.phdevtech.cicloserp.ui.common.repository
+import com.phdevtech.cicloserp.ui.theme.Web
 import com.phdevtech.cicloserp.util.Fmt
 
-/** Equipamentos dos clientes (GET equipments, tabela equipments). */
+/** Equipamentos (GET equipments): Equipamento (marca · modelo · categoria) | Cliente | Identificador | Garantia. */
 @Composable
 fun EquipmentsScreen(pad: PaddingValues, canAdd: Boolean = false, onNew: () -> Unit = {}, onOpen: ((Equipment) -> Unit)? = null) {
     val repo = repository()
@@ -50,35 +46,30 @@ fun EquipmentsScreen(pad: PaddingValues, canAdd: Boolean = false, onNew: () -> U
     val loader = remember { Loader(scope) { repo.equipments(query) } }
     LaunchedEffect(query) { loader.load(debounceMs = if (query.isEmpty()) 0 else 350) }
 
-    Column(Modifier.fillMaxSize().padding(pad)) {
-        PageHeader("Equipamentos", "Equipamentos dos seus clientes, com série e garantia.")
-        if (canAdd) AddButton("Novo equipamento", onNew)
-        SearchCard(query, { query = it }, "Nome, marca, modelo, série ou cliente")
-        Spacer(Modifier.height(8.dp))
-        PullToRefreshBox(loader.refreshing, { loader.load(pull = true) }, Modifier.fillMaxSize()) {
-            when (val s = loader.state) {
-                Load.Loading -> LoadingBox()
-                is Load.Error -> ErrorBox(s.message, { loader.load() })
-                is Load.Ok -> LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (s.data.isEmpty()) item { EmptyBox("Nenhum equipamento encontrado.") }
-                    items(s.data, key = { it.id }) { e -> EquipmentCard(e, if (onOpen != null) ({ onOpen(e) }) else null) }
+    PullToRefreshBox(loader.refreshing, { loader.load(pull = true) }, Modifier.fillMaxSize().padding(pad)) {
+        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item { PageHeader("Equipamentos", "Equipamentos dos seus clientes, com identificador e garantia.") }
+            if (canAdd) item { AddButton("Novo equipamento", onNew) }
+            item {
+                WebCard(Modifier.padding(horizontal = 16.dp)) {
+                    WebField(query, { query = it }, Modifier.fillMaxWidth(), label = "Buscar", placeholder = "Nome, marca, modelo, série ou cliente")
+                    Spacer(Modifier.height(8.dp))
+                    when (val s = loader.state) {
+                        Load.Loading -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Web.accent) }
+                        is Load.Error -> Text(s.message, color = Web.danger)
+                        is Load.Ok -> WebTable(
+                            listOf(Col("Equipamento", 200.dp), Col("Cliente", 180.dp), Col("Identificador", 140.dp), Col("Garantia", 110.dp)),
+                            s.data.map { e ->
+                                TRow(e.id, listOf(e.name, e.customerName.orEmpty(), e.serial.orEmpty(), e.warrantyUntil?.let(Fmt::date).orEmpty()),
+                                    onOpen?.let { { it(e) } },
+                                    subs = listOfNotNull(e.brand, e.model, e.category).joinToString(" · ").let { if (it.isBlank()) emptyMap() else mapOf(0 to it) },
+                                    badgeAfterFirst = if (e.active) null else "inativo")
+                            },
+                            empty = "Nenhum equipamento encontrado.",
+                        )
+                    }
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun EquipmentCard(e: Equipment, onClick: (() -> Unit)?) {
-    AppCard(Modifier.fillMaxWidth().let { if (onClick != null) it.clickable(onClick = onClick) else it }) {
-        Column(Modifier.padding(14.dp)) {
-            Text(e.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            InfoRow("Cliente", e.customerName)
-            InfoRow("Marca/modelo", listOfNotNull(e.brand, e.model).joinToString(" ").ifBlank { null })
-            InfoRow("Nº de série", e.serial)
-            InfoRow("Categoria", e.category)
-            InfoRow("Garantia até", e.warrantyUntil?.let(Fmt::date))
-            InfoRow("Observações", e.notes)
         }
     }
 }

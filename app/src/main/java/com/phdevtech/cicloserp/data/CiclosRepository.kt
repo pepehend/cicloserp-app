@@ -205,6 +205,9 @@ class CiclosRepository(private val api: ApiClient, private val store: SessionSto
     /** Dados do cadastro pelo CNPJ (Receita Federal). */
     suspend fun cnpj(digits: String): JsonObject? = api.get("cnpj", mapOf("cnpj" to digits)).asObj()
 
+    /** Endereço pelo CEP (street, district, city, state). */
+    suspend fun cep(digits: String): JsonObject? = api.get("cep", mapOf("cep" to digits)).asObj()
+
     /** Listas do formulário de OS: equipamentos e orçamentos do cliente, técnicos e tipos de tarefa. */
     suspend fun orderForm(customerId: Int): JsonObject =
         api.get("service_order_form", mapOf("customer_id" to customerId)).asObj() ?: JsonObject(emptyMap())
@@ -212,6 +215,31 @@ class CiclosRepository(private val api: ApiClient, private val store: SessionSto
     suspend fun equipmentRaw(id: Int): JsonObject =
         api.get("equipments", mapOf("all" to 1)).let { it.asObj()?.arr("rows") ?: it.asArr() }
             .mapNotNull { it.asObj() }.firstOrNull { it.int("id") == id } ?: throw ApiException(0, "Equipamento não encontrado")
+
+    /** Listas do sistema (GET meta): marcas, categorias, unidades, tributação… */
+    suspend fun meta(): JsonObject = api.get("meta").asObj() ?: JsonObject(emptyMap())
+
+    /** Lançamento manual de estoque (POST movement): kind = entrada | saida | perda. */
+    suspend fun movement(productId: Int, kind: String, quantity: String, unitCost: String?, note: String?) {
+        api.post("movement", buildJsonObject {
+            put("product_id", productId); put("kind", kind); put("quantity", quantity.replace(',', '.'))
+            if (!unitCost.isNullOrBlank()) put("unit_cost", unitCost.replace(',', '.'))
+            if (!note.isNullOrBlank()) put("note", note)
+        })
+    }
+
+    /** Usuários ativos (GET team), para o filtro Responsável. */
+    suspend fun team(): List<Pair<String, String>> =
+        api.get("team").asArr().mapNotNull { it.asObj() }.map { (it.str("id") ?: "") to (it.str("name") ?: "") }
+
+    /** POST quotes_bulk: action = status | enviado | aprovado | recusado | delete. Devolve (feitos, mensagens de erro). */
+    suspend fun quotesBulk(ids: List<Int>, action: String, status: String? = null): Pair<Int, List<String>> {
+        val r = api.post("quotes_bulk", buildJsonObject {
+            put("ids", kotlinx.serialization.json.JsonArray(ids.map { kotlinx.serialization.json.JsonPrimitive(it) })); put("action", action)
+            if (status != null) put("status", status)
+        }).asObj()
+        return (r?.int("ok") ?: 0) to r?.arr("errors").orEmpty().mapNotNull { it.asObj()?.text("error") }
+    }
 
     suspend fun setQuoteStatus(id: Int, status: String) {
         api.post("quote_status", buildJsonObject { put("id", id); put("status", status) })

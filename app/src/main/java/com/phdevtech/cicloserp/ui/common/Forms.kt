@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,28 +14,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -48,13 +41,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.phdevtech.cicloserp.data.api.ApiException
 import com.phdevtech.cicloserp.data.model.Customer
+import com.phdevtech.cicloserp.ui.theme.Web
+import com.phdevtech.cicloserp.util.Fmt
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
@@ -79,68 +75,58 @@ class FormState(initial: Map<String, String> = emptyMap()) {
     }
 }
 
-/** Estrutura de tela de formulário: barra com voltar, campos roláveis, erro do servidor e botão Salvar fixo embaixo. */
+/**
+ * Folha de formulário igual à janela (.modal) do sistema web no celular: título com X, divisor, campos rolando,
+ * e rodapé fixo com "Cancelar" e o botão vermelho de salvar lado a lado.
+ */
 @Composable
 fun FormScaffold(
     title: String, onBack: () -> Unit, saving: Boolean, error: String?, onSave: () -> Unit,
     saveLabel: String = "Salvar", content: @Composable ColumnScope.() -> Unit,
 ) {
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = { BackBar(title, onBack) },
-        bottomBar = {
-            Surface(shadowElevation = 6.dp) {
-                Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                    if (error != null) Text(error, Modifier.padding(bottom = 8.dp), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-                    Button(onClick = onSave, enabled = !saving, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp)) {
-                        if (saving) CircularProgressIndicator(Modifier.height(22.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary) else Text(saveLabel)
-                    }
-                }
+    Scaffold(containerColor = Web.surface) { pad ->
+        Column(Modifier.fillMaxSize().padding(pad)) {
+            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text(title, Modifier.weight(1f), color = Web.text, fontSize = 20.sp, fontWeight = FontWeight(600))
+                IconButton(onClick = onBack) { Icon(Icons.Outlined.Close, "Fechar", tint = Web.text) }
             }
-        },
-    ) { pad ->
-        Column(
-            Modifier.fillMaxSize().padding(pad).imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp), content = content,
-        )
+            HorizontalDivider(color = Web.line)
+            Column(
+                Modifier.weight(1f).fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp), content = content,
+            )
+            HorizontalDivider(color = Web.line)
+            if (error != null) Text(error, Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp), color = Web.danger, fontSize = 13.8.sp)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                WebButton("Cancelar", onBack, Modifier.weight(1f), enabled = !saving)
+                WebButton(if (saving) "Salvando…" else saveLabel, onSave, Modifier.weight(1f), primary = true, enabled = !saving)
+            }
+        }
     }
 }
 
+/** Legenda de bloco (quando não há fieldset). */
 @Composable
 fun SectionLabel(text: String) {
-    Text(text, Modifier.padding(top = 8.dp), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+    Text(text, Modifier.padding(top = 8.dp), color = Web.text, fontWeight = FontWeight(620), fontSize = 15.sp)
 }
 
 @Composable
 fun TextF(
     form: FormState, key: String, label: String, modifier: Modifier = Modifier.fillMaxWidth(),
     keyboard: KeyboardType = KeyboardType.Text, lines: Int = 1, required: Boolean = false,
-    caps: KeyboardCapitalization = KeyboardCapitalization.Sentences,
+    caps: KeyboardCapitalization = KeyboardCapitalization.Sentences, placeholder: String = "", help: String? = null,
 ) {
-    OutlinedTextField(
-        value = form[key], onValueChange = { form[key] = it },
-        label = { Text(if (required) "$label *" else label) },
-        singleLine = lines == 1, minLines = lines,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboard, capitalization = caps),
-        shape = RoundedCornerShape(12.dp), modifier = modifier,
-    )
+    WebField(form[key], { form[key] = it }, modifier, label, placeholder, help, required, keyboard, lines, caps)
 }
 
-/** Lista suspensa: [options] = (valor, texto). */
-@OptIn(ExperimentalMaterial3Api::class)
+/** Lista suspensa (<select>): [options] = (valor, texto). */
 @Composable
-fun DropdownF(label: String, options: List<Pair<String, String>>, value: String, modifier: Modifier = Modifier.fillMaxWidth(), onChange: (String) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = open, onExpandedChange = { open = it }, modifier = modifier) {
-        OutlinedTextField(
-            value = options.firstOrNull { it.first == value }?.second.orEmpty(), onValueChange = {}, readOnly = true,
-            label = { Text(label) }, trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(open) },
-            shape = RoundedCornerShape(12.dp), modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
-        )
-        ExposedDropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            options.forEach { (v, text) -> DropdownMenuItem(text = { Text(text) }, onClick = { onChange(v); open = false }) }
-        }
-    }
+fun DropdownF(
+    label: String, options: List<Pair<String, String>>, value: String, modifier: Modifier = Modifier.fillMaxWidth(),
+    required: Boolean = false, help: String? = null, onChange: (String) -> Unit,
+) {
+    WebSelect(options, value, onChange, modifier, label, required = required, help = help)
 }
 
 /** Data (AAAA-MM-DD na API, dd/MM/aaaa na tela) escolhida num calendário. */
@@ -148,14 +134,7 @@ fun DropdownF(label: String, options: List<Pair<String, String>>, value: String,
 @Composable
 fun DateF(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier.fillMaxWidth()) {
     var show by remember { mutableStateOf(false) }
-    Box(modifier) {
-        OutlinedTextField(
-            value = if (value.isBlank()) "" else com.phdevtech.cicloserp.util.Fmt.date(value), onValueChange = {}, readOnly = true,
-            label = { Text(label) }, trailingIcon = { Icon(Icons.Outlined.CalendarMonth, null) },
-            shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(),
-        )
-        Box(Modifier.matchParentSize().clickable { show = true })
-    }
+    WebPickBox(if (value.isBlank()) "" else Fmt.date(value), { show = true }, modifier, label, placeholder = "dd/mm/aaaa", icon = Icons.Outlined.CalendarMonth)
     if (show) {
         val initial = runCatching { LocalDate.parse(value).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli() }.getOrNull()
         val st = rememberDatePickerState(initialSelectedDateMillis = initial)
@@ -165,9 +144,9 @@ fun DateF(label: String, value: String, onChange: (String) -> Unit, modifier: Mo
                 TextButton({
                     st.selectedDateMillis?.let { onChange(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString()) }
                     show = false
-                }) { Text("OK") }
+                }) { Text("OK", color = Web.accent) }
             },
-            dismissButton = { TextButton({ onChange(""); show = false }) { Text("Limpar") } },
+            dismissButton = { TextButton({ onChange(""); show = false }) { Text("Limpar", color = Web.accent) } },
         ) { DatePicker(st) }
     }
 }
@@ -177,13 +156,7 @@ fun DateF(label: String, value: String, onChange: (String) -> Unit, modifier: Mo
 @Composable
 fun TimeF(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier.fillMaxWidth()) {
     var show by remember { mutableStateOf(false) }
-    Box(modifier) {
-        OutlinedTextField(
-            value = value, onValueChange = {}, readOnly = true, label = { Text(label) },
-            trailingIcon = { Icon(Icons.Outlined.Schedule, null) }, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(),
-        )
-        Box(Modifier.matchParentSize().clickable { show = true })
-    }
+    WebPickBox(value, { show = true }, modifier, label, placeholder = "--:--", icon = Icons.Outlined.Schedule)
     if (show) {
         val h = value.take(2).toIntOrNull() ?: 9
         val m = value.drop(3).take(2).toIntOrNull() ?: 0
@@ -191,8 +164,8 @@ fun TimeF(label: String, value: String, onChange: (String) -> Unit, modifier: Mo
         AlertDialog(
             onDismissRequest = { show = false },
             text = { TimePicker(st) },
-            confirmButton = { TextButton({ onChange("%02d:%02d".format(st.hour, st.minute)); show = false }) { Text("OK") } },
-            dismissButton = { TextButton({ onChange(""); show = false }) { Text("Limpar") } },
+            confirmButton = { TextButton({ onChange("%02d:%02d".format(st.hour, st.minute)); show = false }) { Text("OK", color = Web.accent) } },
+            dismissButton = { TextButton({ onChange(""); show = false }) { Text("Limpar", color = Web.accent) } },
         )
     }
 }
@@ -201,16 +174,9 @@ fun TimeF(label: String, value: String, onChange: (String) -> Unit, modifier: Mo
 @Composable
 fun CustomerPickerF(label: String, name: String, onPick: (Customer) -> Unit, modifier: Modifier = Modifier.fillMaxWidth()) {
     var show by remember { mutableStateOf(false) }
-    Box(modifier) {
-        OutlinedTextField(
-            value = name, onValueChange = {}, readOnly = true, label = { Text("$label *") },
-            trailingIcon = { Icon(Icons.Outlined.Search, null) }, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(),
-        )
-        Box(Modifier.matchParentSize().clickable { show = true })
-    }
+    WebPickBox(name, { show = true }, modifier, label, required = true)
     if (show) {
         val repo = repository()
-        val scope = rememberCoroutineScope()
         var q by remember { mutableStateOf("") }
         var rows by remember { mutableStateOf<List<Customer>?>(null) }
         var err by remember { mutableStateOf<String?>(null) }
@@ -220,20 +186,21 @@ fun CustomerPickerF(label: String, name: String, onPick: (Customer) -> Unit, mod
         }
         AlertDialog(
             onDismissRequest = { show = false },
-            title = { Text("Escolher cliente") },
+            containerColor = Web.surface,
+            title = { Text("Escolher cliente", fontWeight = FontWeight(600)) },
             text = {
                 Column {
-                    OutlinedTextField(q, { q = it }, singleLine = true, placeholder = { Text("Nome, CNPJ/CPF ou cidade") }, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth())
+                    WebField(q, { q = it }, Modifier.fillMaxWidth(), placeholder = "Nome, CNPJ/CPF ou cidade")
                     Box(Modifier.height(300.dp).padding(top = 8.dp)) {
                         when {
-                            err != null -> Text(err!!, color = MaterialTheme.colorScheme.error)
+                            err != null -> Text(err!!, color = Web.danger)
                             rows == null -> LoadingBox()
-                            rows!!.isEmpty() -> Text("Nenhum cliente encontrado.")
+                            rows!!.isEmpty() -> Text("Nenhum cliente encontrado.", color = Web.muted)
                             else -> LazyColumn {
                                 items(rows!!, key = { it.id }) { c ->
                                     Column(Modifier.fillMaxWidth().clickable { onPick(c); show = false }.padding(vertical = 10.dp)) {
                                         Text(c.name, style = MaterialTheme.typography.bodyLarge)
-                                        c.document?.let { Text(com.phdevtech.cicloserp.util.Fmt.doc(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                                        c.document?.let { Text(Fmt.doc(it), style = MaterialTheme.typography.bodySmall, color = Web.muted) }
                                     }
                                 }
                             }
@@ -242,7 +209,7 @@ fun CustomerPickerF(label: String, name: String, onPick: (Customer) -> Unit, mod
                 }
             },
             confirmButton = {},
-            dismissButton = { TextButton({ show = false }) { Text("Cancelar") } },
+            dismissButton = { TextButton({ show = false }) { Text("Cancelar", color = Web.accent) } },
         )
     }
 }
@@ -251,9 +218,9 @@ fun CustomerPickerF(label: String, name: String, onPick: (Customer) -> Unit, mod
 @Composable
 fun ConfirmDialog(title: String, text: String, confirmLabel: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
-        onDismissRequest = onDismiss, title = { Text(title) }, text = { Text(text) },
-        confirmButton = { TextButton(onConfirm) { Text(confirmLabel, color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onDismiss) { Text("Cancelar") } },
+        onDismissRequest = onDismiss, containerColor = Web.surface, title = { Text(title, fontWeight = FontWeight(600)) }, text = { Text(text) },
+        confirmButton = { TextButton(onConfirm) { Text(confirmLabel, color = Web.danger) } },
+        dismissButton = { TextButton(onDismiss) { Text("Cancelar", color = Web.accent) } },
     )
 }
 

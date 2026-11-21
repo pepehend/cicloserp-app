@@ -223,7 +223,7 @@ class Loader<T>(private val scope: kotlinx.coroutines.CoroutineScope, private va
     }
 }
 
-/** Cartão branco com borda fina e cantos arredondados, como no sistema web. */
+/** Cartão do app do técnico (.tk-card/.tk-kpi): superfície, borda --line, raio 14. */
 @Composable
 fun AppCard(
     modifier: Modifier = Modifier,
@@ -232,61 +232,56 @@ fun AppCard(
 ) {
     Card(
         modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor ?: MaterialTheme.colorScheme.outlineVariant),
+        shape = RoundedCornerShape(14.dp),
+        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = com.phdevtech.cicloserp.ui.theme.Web.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor ?: com.phdevtech.cicloserp.ui.theme.Web.line),
         content = content,
     )
 }
 
-/** Título grande da página com texto de apoio, como "Clientes / Cadastre pelo CNPJ…". */
+/** Título da página (h1 1,45rem) com o texto de apoio em cinza. */
 @Composable
 fun PageHeader(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(title, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight(650))
+        if (subtitle != null) Text(subtitle, Modifier.padding(top = 2.dp), style = MaterialTheme.typography.bodyLarge, color = com.phdevtech.cicloserp.ui.theme.Web.muted)
     }
 }
 
-/** Quadradinho colorido com ícone (atalhos do início, menu lateral, indicadores). */
+/** Quadradinho com ícone e fundo na cor a 14% (.tk-si, .tk-dli). */
 @Composable
-fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 44.dp) {
-    Box(modifier.size(size).background(color.copy(alpha = 0.14f), RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+fun IconTile(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 38.dp, radius: androidx.compose.ui.unit.Dp = 10.dp) {
+    Box(modifier.size(size).background(color.copy(alpha = 0.14f), RoundedCornerShape(radius)), contentAlignment = Alignment.Center) {
         Icon(icon, null, Modifier.size(size * 0.5f), tint = color)
     }
 }
 
-/** Caixa de seleção com texto ao lado. */
+/** Caixa de seleção do sistema (accent-color vermelho) com texto ao lado. */
 @Composable
 fun LabeledCheck(checked: Boolean, onChange: (Boolean) -> Unit, label: String, modifier: Modifier = Modifier) {
-    Row(modifier.clickable { onChange(!checked) }.padding(end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-        androidx.compose.material3.Checkbox(checked, onChange)
-        Text(label, style = MaterialTheme.typography.bodyMedium)
+    Row(modifier.clickable { onChange(!checked) }.padding(end = 14.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        androidx.compose.material3.Checkbox(
+            checked, null,
+            colors = androidx.compose.material3.CheckboxDefaults.colors(
+                checkedColor = com.phdevtech.cicloserp.ui.theme.Web.accent, checkmarkColor = com.phdevtech.cicloserp.ui.theme.Web.accentInk,
+                uncheckedColor = com.phdevtech.cicloserp.ui.theme.Web.muted,
+            ),
+        )
+        Text(label, Modifier.padding(start = 4.dp), style = MaterialTheme.typography.bodyLarge)
     }
 }
 
-/** Cartão de busca das listas: rótulo "Buscar", campo e filtros (conteúdo extra). */
+/** Cartão "Buscar": rótulo, campo e filtros (conteúdo extra) — o .card com o campo de busca das listas. */
 @Composable
 fun SearchCard(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier, extra: @Composable () -> Unit = {}) {
-    AppCard(modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        Column(Modifier.padding(16.dp)) {
-            Text("Buscar", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
-            androidx.compose.material3.OutlinedTextField(
-                value = value, onValueChange = onChange, singleLine = true,
-                placeholder = { Text(hint, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-            )
-            extra()
-        }
+    WebCard(modifier.padding(horizontal = 16.dp)) {
+        WebField(value, onChange, Modifier.fillMaxWidth(), label = "Buscar", placeholder = hint)
+        extra()
     }
 }
 
 /** Botão vermelho "+ Novo ..." do topo das listas. */
 @Composable
 fun AddButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Button(onClick, modifier.padding(horizontal = 16.dp, vertical = 6.dp), shape = RoundedCornerShape(12.dp)) {
-        Icon(Icons.Outlined.Add, null)
-        Text(" $label")
-    }
+    WebButton(label, onClick, modifier.padding(horizontal = 16.dp, vertical = 6.dp), primary = true, icon = Icons.Outlined.Add)
 }

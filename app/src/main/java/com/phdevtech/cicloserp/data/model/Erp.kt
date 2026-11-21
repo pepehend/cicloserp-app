@@ -102,6 +102,8 @@ data class Product(
     val avgCost: Double,
     val location: String?,
     val description: String?,
+    val mfrCode: String? = null,
+    val markup: Double? = null,
     val active: Boolean,
 ) {
     val isService get() = type == "servico"
@@ -122,6 +124,8 @@ data class Product(
             avgCost = o.dbl("avg_cost") ?: 0.0,
             location = o.text("location"),
             description = o.text("description"),
+            mfrCode = o.text("mfr_code"),
+            markup = o.dbl("markup"),
             active = o.str("active") != "0",
         )
     }

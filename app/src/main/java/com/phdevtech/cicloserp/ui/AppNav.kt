@@ -90,6 +90,7 @@ object Route {
     const val CUSTOMER_EDIT = "cliente/{id}/editar"
     const val PRODUCT_NEW = "produto/novo/{type}"
     const val PRODUCT_EDIT = "produto/{id}/editar"
+    const val PRODUCT = "produto/{id}"
     const val EQUIPMENT_NEW = "equipamento/novo/{cid}"
     const val EQUIPMENT_EDIT = "equipamento/{id}/editar"
     const val ORDER_NEW = "os/nova/{cid}"
@@ -138,8 +139,8 @@ fun LoggedInApp(state: AuthState.LoggedIn) {
         composable(Route.ORDERS) { Shell(nav, me, entries, Route.ORDERS, go) { pad -> OrdersScreen(openOrder, pad) } }
         composable(Route.CUSTOMERS) { Shell(nav, me, entries, Route.CUSTOMERS, go) { pad -> CustomersScreen({ nav.navigate("cliente/$it") }, pad, me.can("clientes.add"), { nav.navigate(Route.CUSTOMER_NEW) }) } }
         composable(Route.QUOTES) { Shell(nav, me, entries, Route.QUOTES, go) { pad -> QuotesScreen({ nav.navigate("orcamento/$it") }, pad) } }
-        composable(Route.PRODUCTS) { Shell(nav, me, entries, Route.PRODUCTS, go) { pad -> ProductsScreen(false, pad, me.can("produtos.add"), { nav.navigate("produto/novo/produto") }, if (me.can("produtos.edit")) ({ p -> nav.navigate("produto/${p.id}/editar") }) else null) } }
-        composable(Route.SERVICES) { Shell(nav, me, entries, Route.SERVICES, go) { pad -> ProductsScreen(true, pad, me.can("servicos.add"), { nav.navigate("produto/novo/servico") }, if (me.can("servicos.edit")) ({ p -> nav.navigate("produto/${p.id}/editar") }) else null) } }
+        composable(Route.PRODUCTS) { Shell(nav, me, entries, Route.PRODUCTS, go) { pad -> ProductsScreen(false, pad, me.can("produtos.add"), { nav.navigate("produto/novo/produto") }, ({ p -> nav.navigate("produto/${p.id}") })) } }
+        composable(Route.SERVICES) { Shell(nav, me, entries, Route.SERVICES, go) { pad -> ProductsScreen(true, pad, me.can("servicos.add"), { nav.navigate("produto/novo/servico") }, ({ p -> nav.navigate("produto/${p.id}") })) } }
         composable(Route.EQUIPMENTS) { Shell(nav, me, entries, Route.EQUIPMENTS, go) { pad -> EquipmentsScreen(pad, me.can("equipamentos.add"), { nav.navigate("equipamento/novo/0") }, if (me.can("equipamentos.edit")) ({ e -> nav.navigate("equipamento/${e.id}/editar") }) else null) } }
         composable(Route.ACCOUNT) { Shell(nav, me, entries, Route.ACCOUNT, go) { pad -> AccountScreen(state, pad) } }
         composable(Route.CUSTOMER_NEW) {
@@ -151,6 +152,15 @@ fun LoggedInApp(state: AuthState.LoggedIn) {
         composable(Route.PRODUCT_NEW, listOf(navArgument("type") { type = NavType.StringType })) { e ->
             val service = e.arguments!!.getString("type") == "servico"
             ProductFormScreen(null, service, false, { nav.popBackStack() }, { nav.popBackStack() }, { nav.popBackStack() })
+        }
+        composable(Route.PRODUCT, listOf(navArgument("id") { type = NavType.IntType })) { e ->
+            val id = e.arguments!!.getInt("id")
+            com.phdevtech.cicloserp.ui.products.ProductScreen(
+                id, onBack = { nav.popBackStack() },
+                canEdit = me.can("produtos.edit") || me.can("servicos.edit"), canDelete = me.can("produtos.delete") || me.can("servicos.delete"),
+                canMove = me.can("movimentacoes.add"), isAdmin = me.isAdmin,
+                onEdit = { nav.navigate("produto/$id/editar") }, onDeleted = { nav.popBackStack() },
+            )
         }
         composable(Route.PRODUCT_EDIT, listOf(navArgument("id") { type = NavType.IntType })) { e ->
             ProductFormScreen(e.arguments!!.getInt("id"), false, me.can("produtos.delete") || me.can("servicos.delete"), { nav.popBackStack() }, { nav.popBackStack() }, { nav.popBackStack() })
