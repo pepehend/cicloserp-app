@@ -46,7 +46,7 @@ class ApiClient(
 
     private suspend fun call(route: String, params: Map<String, Any?>, body: JsonObject?): JsonElement =
         withContext(Dispatchers.IO) {
-            val base = baseUrl ?: throw ApiException(0, "Informe o endereço do servidor")
+            val base = baseUrl ?: throw ApiException(0, "Servidor não configurado")
             val url = base.newBuilder()
                 .addPathSegment("api.php")
                 .addQueryParameter("r", route)
@@ -59,8 +59,7 @@ class ApiClient(
             val resp = try {
                 http.newCall(req.build()).execute()
             } catch (e: IOException) {
-                val lan = if (isLocalNetworkHost(base.host)) " Como o servidor está na rede local, confira se o app tem a permissão de rede local (Configurações > Apps > CiclosERP > Permissões)." else ""
-                throw ApiException(0, "Sem conexão com o servidor. Confira a internet e o endereço (${base.host}).$lan")
+                throw ApiException(0, "Sem conexão com o servidor. Confira a sua internet e tente de novo.")
             }
             resp.use { r ->
                 val text = r.body.string()
@@ -71,20 +70,12 @@ class ApiClient(
                     if (r.code == 401 && token != null) onUnauthorized?.invoke()
                     throw ApiException(r.code, msg)
                 }
-                json ?: throw ApiException(r.code, "Resposta inválida do servidor. O endereço é mesmo do CiclosERP?")
+                json ?: throw ApiException(r.code, "Resposta inválida do servidor.")
             }
         }
 
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
-
-        /** Endereço da rede local (RFC 1918, link-local ou .local): no Android 17+ exige ACCESS_LOCAL_NETWORK. */
-        fun isLocalNetworkHost(host: String): Boolean {
-            if (host.endsWith(".local", ignoreCase = true)) return true
-            val p = host.split('.').mapNotNull { it.toIntOrNull() }
-            if (p.size != 4) return false
-            return p[0] == 10 || (p[0] == 172 && p[1] in 16..31) || (p[0] == 192 && p[1] == 168) || (p[0] == 169 && p[1] == 254)
-        }
 
         /**
          * Endereço digitado → URL base (com "/" no fim). Sem http(s)://, usa http para IP ou localhost

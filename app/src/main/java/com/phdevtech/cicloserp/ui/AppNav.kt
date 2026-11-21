@@ -197,7 +197,7 @@ fun LoggedInApp(state: AuthState.LoggedIn) {
                     onPhotos = { nav.navigate("os/$id/fotos") },
                     onPage = { nav.navigate("os/$id/p/$it") },
                     onCustomer = if (me.can("clientes")) ({ cid -> nav.navigate("cliente/$cid") }) else null,
-                    onEditWeb = { openWeb(ctx, state.serverUrl, "#/ordem/$id") },
+                    onEditWeb = { openWeb(ctx, com.phdevtech.cicloserp.data.AppConfig.SERVER_URL, "#/ordem/$id") },
                 ),
             )
         }

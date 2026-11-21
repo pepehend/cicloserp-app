@@ -16,7 +16,7 @@ O app **não** conecta direto no MySQL/MariaDB. Ele conversa com o `api.php` do 
 
 Módulo de **ordens de serviço / técnico**, espelhando o app do técnico do sistema web:
 
-- Login (endereço do sistema, e-mail e senha) e sessão salva no aparelho (fora do backup).
+- Login (e-mail e senha) e sessão salva no aparelho (fora do backup). O servidor é fixo e não aparece no app.
 - Início (OS de hoje, atrasadas, em execução), Agenda semanal (com filtros e "Equipe" para quem tem `ordens.all`) e lista de OS com busca e filtro de situação.
 - Ficha da OS: detalhes (telefone e endereço abrem discador e mapa), peças/serviços, controle de horas e pendências.
 - Execução: A caminho, Check-in, Pausar (com motivo), Retomar e Check-out (respeitando as pendências do tipo de tarefa).
@@ -36,19 +36,18 @@ Ainda não existe (só consulta; criar/editar segue pelo sistema web): vendas, c
 ## Estrutura
 
 ```
-data/api/ApiClient.kt        OkHttp: Bearer token, erros da API, endereço do servidor
+data/AppConfig.kt            servidor fixo do aplicativo (`SERVER_URL`)
+data/api/ApiClient.kt        OkHttp: Bearer token e erros da API
 data/CiclosRepository.kt     rotas usadas (token_login, tech_home, tech_tasks, service_orders, service_order_detail, …)
 data/model/                  modelos e QuestionLogic (condicionais, igual ao PHP)
-data/SessionStore.kt         DataStore com servidor e token
+data/SessionStore.kt         DataStore com o token
 ui/                          Compose: login, menu lateral, início, agenda, ordens, clientes, orçamentos, produtos/serviços, equipamentos
 ```
 
 ## Rodar e testar
 
 - Requisitos: Android Studio, `minSdk 28`, `targetSdk 37`.
-- Servidor de testes: `http://190.102.41.159` (HTTP liberado só para ele e para `10.0.2.2` em `res/xml/network_security_config.xml`; em produção use sempre `https://`).
-- Servidor local pelo emulador: `10.0.2.2:<porta>`.
-- **Android 17+**: servidor em rede local (`192.168.x.x`, `10.x.x.x`) exige a permissão `ACCESS_LOCAL_NETWORK`; o app pede no login. Servidor com domínio público não pede.
+- Servidor: fixo em `AppConfig.SERVER_URL` (`data/AppConfig.kt`); para apontar o app para outro sistema, troque essa constante. O HTTP sem criptografia só é liberado para o endereço dela em `res/xml/network_security_config.xml`; com um domínio `https://` basta trocar a constante e remover a exceção.
 - Testes unitários: `./gradlew :app:testDebugUnitTest`.
 
 ## Versão do app

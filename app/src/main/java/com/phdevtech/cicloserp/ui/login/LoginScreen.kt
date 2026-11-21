@@ -1,8 +1,5 @@
 package com.phdevtech.cicloserp.ui.login
 
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -36,10 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.core.content.ContextCompat
-import com.phdevtech.cicloserp.data.api.ApiClient
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -60,15 +54,15 @@ class LoginViewModel(private val repo: CiclosRepository) : ViewModel() {
     private val _state = MutableStateFlow(UiState())
     val state = _state.asStateFlow()
 
-    fun login(server: String, email: String, password: String) {
-        if (server.isBlank() || email.isBlank() || password.isEmpty()) {
-            _state.value = UiState(error = "Preencha o servidor, o e-mail e a senha.")
+    fun login(email: String, password: String) {
+        if (email.isBlank() || password.isEmpty()) {
+            _state.value = UiState(error = "Preencha o e-mail e a senha.")
             return
         }
         _state.value = UiState(busy = true)
         viewModelScope.launch {
             _state.value = try {
-                repo.login(server, email, password)
+                repo.login(email, password)
                 UiState()
             } catch (e: Exception) {
                 UiState(error = e.message ?: "Não foi possível entrar")
@@ -78,22 +72,13 @@ class LoginViewModel(private val repo: CiclosRepository) : ViewModel() {
 }
 
 @Composable
-fun LoginScreen(initialServer: String?, notice: String?) {
+fun LoginScreen(notice: String?) {
     val vm = appViewModel { LoginViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
-    var server by rememberSaveable { mutableStateOf(initialServer?.removeSuffix("/") ?: DEFAULT_SERVER) }
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
-    val ctx = LocalContext.current
-    // Android 17+: servidor na rede local (ex.: 192.168.0.10) exige a permissão de rede local; internet pública não
-    val lanPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { vm.login(server, email, password) }
-    val submit = {
-        val host = ApiClient.normalizeBaseUrl(server)?.host
-        val needsLan = host != null && ApiClient.isLocalNetworkHost(host) &&
-            ContextCompat.checkSelfPermission(ctx, LAN_PERMISSION) != PackageManager.PERMISSION_GRANTED
-        if (needsLan) lanPermission.launch(LAN_PERMISSION) else vm.login(server, email, password)
-    }
+    val submit = { vm.login(email, password) }
 
     Surface(Modifier.fillMaxSize()) {
         Column(
@@ -110,14 +95,6 @@ fun LoginScreen(initialServer: String?, notice: String?) {
                 Text("CiclosERP", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 Text("Ordens de serviço no celular", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(28.dp))
-                OutlinedTextField(
-                    value = server, onValueChange = { server = it },
-                    label = { Text("Endereço do sistema") },
-                    supportingText = { Text("O mesmo endereço que você abre no navegador") },
-                    singleLine = true, modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
-                )
-                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = email, onValueChange = { email = it },
                     label = { Text("E-mail") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -150,9 +127,3 @@ fun LoginScreen(initialServer: String?, notice: String?) {
         }
     }
 }
-
-/** Manifest.permission.ACCESS_LOCAL_NETWORK (API 37). Em versões antigas o pedido é ignorado e a rede local já funciona. */
-private const val LAN_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
-
-/** Servidor de testes (pode ser trocado na tela). */
-private const val DEFAULT_SERVER = "http://190.102.41.159"

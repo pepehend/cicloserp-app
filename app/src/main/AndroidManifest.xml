@@ -3,8 +3,6 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Android 17+: necessária só quando o sistema está num servidor da rede local (192.168.x.x, 10.x.x.x). Pedida no login. -->
-    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <!-- A câmera é aberta pelo app de câmera do aparelho (sem permissão própria), mas não é obrigatória -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 

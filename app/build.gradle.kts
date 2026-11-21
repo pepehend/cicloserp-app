@@ -13,8 +13,8 @@ android {
         targetSdk = 37
         // Versão do app (regras no README): versionName = MAIOR.MENOR.CORREÇÃO
         // e versionCode = MAIOR*10000 + MENOR*100 + CORREÇÃO
-        versionCode = 800
-        versionName = "0.8.0"
+        versionCode = 900
+        versionName = "0.9.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

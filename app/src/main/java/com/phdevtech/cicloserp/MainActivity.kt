@@ -32,7 +32,7 @@ private fun Root() {
     LaunchedEffect(Unit) { if (repo.auth.value is AuthState.Loading) repo.restore() }
     when (val a = auth) {
         AuthState.Loading -> LoadingBox()
-        is AuthState.LoggedOut -> LoginScreen(a.serverUrl, a.message)
+        is AuthState.LoggedOut -> LoginScreen(a.message)
         is AuthState.LoggedIn -> LoggedInApp(a)
     }
 }
