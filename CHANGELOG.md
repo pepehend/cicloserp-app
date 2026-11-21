@@ -2,6 +2,12 @@
 
 O formato segue o [README](README.md#versão-do-app): `MAIOR.MENOR.CORREÇÃO`.
 
+## 0.8.0
+
+Servidor mínimo: CiclosERP 3.4.0 (o número do orçamento por empresa vem do CiclosERP 3.8.0; antes disso o app mostra o id).
+
+- Orçamentos (lista, ficha, orçamentos da OS e escolha de orçamento no formulário da OS) usam o número do orçamento da empresa, que começa em 1 em cada empresa.
+
 ## 0.7.0
 
 Servidor mínimo: CiclosERP 3.4.0 (o número da OS por empresa vem do CiclosERP 3.7.0; antes disso o app mostra o id).

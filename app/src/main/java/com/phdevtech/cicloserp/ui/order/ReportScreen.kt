@@ -449,7 +449,7 @@ fun OrderQuotesScreen(id: Int, onBack: () -> Unit, onOpen: ((Int) -> Unit)?) {
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text("Orçamento #${q.id}", color = Web.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("Orçamento #${q.number}", color = Web.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             Text(listOfNotNull(q.relation, q.statusLabel).joinToString(" · "), color = Web.muted, fontSize = 13.sp)
                         }
                         Text(Fmt.money(q.total), color = Web.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)

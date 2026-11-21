@@ -180,7 +180,7 @@ data class OrderItem(
 )
 
 /** Orçamento ligado à OS (página Orçamentos): número, relação (aberto pela OS…), situação e total. */
-data class OrderQuote(val id: Int, val relation: String?, val statusLabel: String?, val total: Double)
+data class OrderQuote(val id: Int, val relation: String?, val statusLabel: String?, val total: Double, val number: Int = id)
 
 data class HourRow(val label: String, val at: String, val userName: String?, val reason: String?)
 
@@ -261,7 +261,7 @@ data class OrderDetail(
                 equipment = equipment,
                 equipmentName = o.text("equipment_name"),
                 taskTypeDuration = o.int("task_type_duration"),
-                quotes = root.arr("quotes").mapNotNull { e -> e.asObj()?.let { OrderQuote(it.int("id") ?: 0, it.text("relation"), it.text("status_label"), it.dbl("total") ?: 0.0) } },
+                quotes = root.arr("quotes").mapNotNull { e -> e.asObj()?.let { OrderQuote(it.int("id") ?: 0, it.text("relation"), it.text("status_label"), it.dbl("total") ?: 0.0, it.int("number") ?: it.int("id") ?: 0) } },
                 technicianName = o.text("technician_name"),
                 taskTypeName = o.text("task_type_name"),
                 report = o.text("report"),

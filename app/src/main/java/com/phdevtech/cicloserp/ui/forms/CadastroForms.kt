@@ -398,7 +398,7 @@ fun NewOrderScreen(meId: Int, presetCustomerId: Int?, onBack: () -> Unit, onSave
                             }
                         }
                         if (form["origin"] == "orcamento") {
-                            DropdownF("Orçamento", lists.options("quotes") { q -> "#${q.s("id")} · ${q.text("lead_name") ?: q.s("status")}" }, form["quote_id"]) { form["quote_id"] = it }
+                            DropdownF("Orçamento", lists.options("quotes") { q -> "#${q.text("number") ?: q.s("id")} · ${q.text("lead_name") ?: q.s("status")}" }, form["quote_id"]) { form["quote_id"] = it }
                         }
                     }
                     TextF(form, "description", "Descrição do serviço", lines = 3, required = true, placeholder = "O que o cliente pediu ou relatou")

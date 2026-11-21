@@ -176,6 +176,8 @@ data class QuoteRow(
     val externalCode: String?,
     val userName: String?,
     val items: Int,
+    /** Número do orçamento na empresa (CiclosERP 3.8.0+; servidor antigo: igual ao id). */
+    val number: Int = id,
 ) {
     companion object {
         fun from(o: JsonObject) = QuoteRow(
@@ -188,6 +190,7 @@ data class QuoteRow(
             externalCode = o.text("external_code"),
             userName = o.text("user_name"),
             items = o.int("items") ?: 0,
+            number = o.int("number") ?: o.int("id") ?: 0,
         )
     }
 }
@@ -236,6 +239,7 @@ data class QuoteDetail(
     val items: List<QuoteItem>,
     val extras: List<Pair<String, Double>>,
     val publicUrl: String?,
+    val number: Int = id,
 ) {
     companion object {
         fun from(o: JsonObject) = QuoteDetail(
@@ -256,6 +260,7 @@ data class QuoteDetail(
             },
             extras = o.arr("extras").mapNotNull { it.asObj() }.map { it.str("description").orEmpty() to (it.dbl("amount") ?: 0.0) },
             publicUrl = o.text("public_url"),
+            number = o.int("number") ?: o.int("id") ?: 0,
         )
     }
 }
