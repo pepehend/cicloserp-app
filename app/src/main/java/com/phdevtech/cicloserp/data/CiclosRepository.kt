@@ -26,8 +26,8 @@ import kotlinx.serialization.json.put
 /** Estado da sessão do app. */
 sealed interface AuthState {
     data object Loading : AuthState
-    data class LoggedOut(val serverUrl: String?, val message: String? = null) : AuthState
-    data class LoggedIn(val me: Me, val serverUrl: String, val serverVersion: String?) : AuthState
+    data class LoggedOut(val message: String? = null) : AuthState
+    data class LoggedIn(val me: Me) : AuthState
 }
 
 /**
@@ -42,37 +42,37 @@ class CiclosRepository(private val api: ApiClient, private val store: SessionSto
     init {
         api.onUnauthorized = {
             api.token = null
-            _auth.value = AuthState.LoggedOut(api.baseUrl?.toString(), "Seu acesso expirou ou foi removido. Entre de novo.")
+            _auth.value = AuthState.LoggedOut("Seu acesso expirou ou foi removido. Entre de novo.")
         }
     }
 
+    private val base = ApiClient.normalizeBaseUrl(AppConfig.SERVER_URL)
+
     /** Abre o app: com token salvo, confere no servidor quem é o usuário. */
     suspend fun restore() {
-        val saved = store.load()
-        val base = saved.serverUrl?.let(ApiClient::normalizeBaseUrl)
         api.baseUrl = base
-        if (base == null || saved.token == null) {
-            _auth.value = AuthState.LoggedOut(saved.serverUrl)
+        val token = store.load().token
+        if (token == null) {
+            _auth.value = AuthState.LoggedOut()
             return
         }
-        api.token = saved.token
+        api.token = token
         _auth.value = try {
             val r = api.get("me").asObj()
             val u = r?.obj("user") ?: throw ApiException(401, "Entre de novo.")
-            AuthState.LoggedIn(Me.from(u), base.toString(), r.text("version"))
+            AuthState.LoggedIn(Me.from(u))
         } catch (e: ApiException) {
             if (e.status == 401) {
                 store.clearToken(); api.token = null
-                AuthState.LoggedOut(base.toString(), "Seu acesso expirou. Entre de novo.")
+                AuthState.LoggedOut("Seu acesso expirou. Entre de novo.")
             } else {
                 // Sem internet: não dá para conferir agora; mostra o login com o aviso
-                AuthState.LoggedOut(base.toString(), e.message)
+                AuthState.LoggedOut(e.message)
             }
         }
     }
 
-    suspend fun login(serverInput: String, email: String, password: String) {
-        val base = ApiClient.normalizeBaseUrl(serverInput) ?: throw ApiException(0, "Endereço do servidor inválido")
+    suspend fun login(email: String, password: String) {
         api.baseUrl = base
         api.token = null
         val body = buildJsonObject {
@@ -89,8 +89,8 @@ class CiclosRepository(private val api: ApiClient, private val store: SessionSto
         val token = r.text("token") ?: throw ApiException(0, "O servidor não devolveu o acesso do aplicativo")
         val me = r.obj("user")?.let(Me::from) ?: throw ApiException(0, "Resposta inválida do servidor")
         api.token = token
-        store.saveLogin(base.toString(), token)
-        _auth.value = AuthState.LoggedIn(me, base.toString(), r.text("version"))
+        store.saveToken(token)
+        _auth.value = AuthState.LoggedIn(me)
     }
 
     /** Sair: apaga o token no servidor (logout) e no aparelho. */
@@ -98,7 +98,7 @@ class CiclosRepository(private val api: ApiClient, private val store: SessionSto
         runCatching { api.post("logout") }
         store.clearToken()
         api.token = null
-        _auth.value = AuthState.LoggedOut(api.baseUrl?.toString())
+        _auth.value = AuthState.LoggedOut()
     }
 
     // ---------------- Ordens de serviço ----------------

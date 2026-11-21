@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -197,7 +198,7 @@ fun LoggedInApp(state: AuthState.LoggedIn) {
                     onPhotos = { nav.navigate("os/$id/fotos") },
                     onPage = { nav.navigate("os/$id/p/$it") },
                     onCustomer = if (me.can("clientes")) ({ cid -> nav.navigate("cliente/$cid") }) else null,
-                    onEditWeb = { openWeb(ctx, state.serverUrl, "#/ordem/$id") },
+                    onEditWeb = { openWeb(ctx, com.phdevtech.cicloserp.data.AppConfig.SERVER_URL, "#/ordem/$id") },
                 ),
             )
         }
@@ -238,6 +239,8 @@ private fun Shell(
         drawerState = drawer,
         drawerContent = {
             ModalDrawerSheet(drawerContainerColor = MaterialTheme.colorScheme.surface) {
+                // Logo do sistema no topo da gaveta
+                com.phdevtech.cicloserp.ui.common.CiclosLogo(Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 16.dp).height(34.dp))
                 // Cabeçalho vermelho com avatar, nome, perfil e Sair (igual ao app do técnico web)
                 Row(
                     Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary).padding(horizontal = 16.dp, vertical = 20.dp),
@@ -269,7 +272,7 @@ private fun Shell(
                             .padding(horizontal = 8.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        IconTile(e.icon, MaterialTheme.colorScheme.primary, size = 36.dp)
+                        IconTile(e.icon, com.phdevtech.cicloserp.ui.theme.Web.accentText, size = 36.dp)
                         Text(e.label, Modifier.padding(start = 14.dp), style = MaterialTheme.typography.bodyLarge)
                     }
                 }

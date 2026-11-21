@@ -9,30 +9,26 @@ import kotlinx.coroutines.flow.first
 // Fica fora do backup (res/xml/backup_rules.xml e data_extraction_rules.xml): o token vale como a senha.
 private val Context.sessionDataStore by preferencesDataStore(name = "sessao")
 
-/** Endereço do servidor e token de acesso do aparelho. */
+/** Token de acesso do aparelho (o servidor é fixo: AppConfig.SERVER_URL). */
 class SessionStore(private val context: Context) {
 
-    data class Saved(val serverUrl: String?, val token: String?)
+    data class Saved(val token: String?)
 
     suspend fun load(): Saved {
         val p = context.sessionDataStore.data.first()
-        return Saved(p[KEY_SERVER], p[KEY_TOKEN])
+        return Saved(p[KEY_TOKEN])
     }
 
-    suspend fun saveLogin(serverUrl: String, token: String) {
-        context.sessionDataStore.edit {
-            it[KEY_SERVER] = serverUrl
-            it[KEY_TOKEN] = token
-        }
+    suspend fun saveToken(token: String) {
+        context.sessionDataStore.edit { it[KEY_TOKEN] = token }
     }
 
-    /** Sai da conta: apaga o token e mantém o endereço do servidor para o próximo login. */
+    /** Sai da conta: apaga o token. */
     suspend fun clearToken() {
         context.sessionDataStore.edit { it.remove(KEY_TOKEN) }
     }
 
     private companion object {
-        val KEY_SERVER = stringPreferencesKey("server_url")
         val KEY_TOKEN = stringPreferencesKey("token")
     }
 }

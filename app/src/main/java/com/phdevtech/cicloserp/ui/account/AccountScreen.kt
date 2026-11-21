@@ -26,7 +26,7 @@ import com.phdevtech.cicloserp.data.AuthState
 import com.phdevtech.cicloserp.ui.common.repository
 import kotlinx.coroutines.launch
 
-/** Minha conta: dados do usuário, servidor e saída (apaga o token deste aparelho no servidor). */
+/** Minha conta: dados do usuário e saída (apaga o token deste aparelho no servidor). */
 @Composable
 fun AccountScreen(state: AuthState.LoggedIn, pad: PaddingValues) {
     val repo = repository()
@@ -46,7 +46,6 @@ fun AccountScreen(state: AuthState.LoggedIn, pad: PaddingValues) {
                     runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "?"
                 }
                 Text("Aplicativo: versão $appVersion", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Servidor: ${state.serverUrl}${state.serverVersion?.let { " (v$it)" } ?: ""}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Button(onClick = { confirm = true }, modifier = Modifier.padding(top = 16.dp).fillMaxWidth()) {

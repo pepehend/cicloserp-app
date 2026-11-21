@@ -2,6 +2,22 @@
 
 O formato segue o [README](README.md#versão-do-app): `MAIOR.MENOR.CORREÇÃO`.
 
+## 0.10.0
+
+Servidor mínimo: CiclosERP 3.4.0.
+
+- Logo do CiclosERP na tela de entrada e no topo da gaveta do sistema (versão clara e escura, em vetor).
+- Novo ícone do aplicativo (símbolo do CiclosERP sobre fundo azul, com versão monocromática).
+- Tema escuro com fundo `#0B2A58` e variações; o destaque padrão continua `#B02A37`, com um tom mais claro para textos e ícones sobre o azul.
+
+## 0.9.0
+
+Servidor mínimo: CiclosERP 3.4.0.
+
+- O servidor passou a ser fixo no aplicativo (`AppConfig.SERVER_URL`): a tela de entrada pede só e-mail e senha, e o endereço não aparece em nenhuma tela. Minha conta não mostra mais o servidor.
+- Saiu o pedido de permissão de rede local (o servidor é público) e a exceção de HTTP para o emulador.
+- Mensagens de erro de conexão não citam mais o endereço.
+
 ## 0.8.0
 
 Servidor mínimo: CiclosERP 3.4.0 (o número do orçamento por empresa vem do CiclosERP 3.8.0; antes disso o app mostra o id).

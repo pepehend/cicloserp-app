@@ -168,7 +168,7 @@ fun OrderCard(o: OrderSummary, onClick: () -> Unit, showTechnician: Boolean = fa
 }
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(text, modifier.padding(top = 8.dp, bottom = 4.dp), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+    Text(text, modifier.padding(top = 8.dp, bottom = 4.dp), style = MaterialTheme.typography.titleSmall, color = com.phdevtech.cicloserp.ui.theme.Web.accentText)
 }
 
 /** Campo de busca das listas. */

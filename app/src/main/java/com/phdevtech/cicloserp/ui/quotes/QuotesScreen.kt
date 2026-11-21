@@ -145,7 +145,7 @@ private fun QuoteCard(q: QuoteRow, page: QuotesPage, modifier: Modifier = Modifi
     AppCard(modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(Modifier.padding(14.dp)) {
             Row {
-                Text("#${q.number}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text("#${q.number}", style = MaterialTheme.typography.labelLarge, color = com.phdevtech.cicloserp.ui.theme.Web.accentText)
                 Box(Modifier.weight(1f))
                 val c = quoteColor(q.status)
                 Text(page.statuses[q.status] ?: q.status, Modifier.background(c.copy(alpha = 0.15f), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp),

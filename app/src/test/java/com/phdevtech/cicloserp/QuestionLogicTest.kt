@@ -85,15 +85,4 @@ class QuestionLogicTest {
         assertNull(ApiClient.normalizeBaseUrl("   "))
         assertNotNull(ApiClient.normalizeBaseUrl("http://localhost:8088"))
     }
-
-    @Test
-    fun redeLocalExigePermissaoNoAndroid17() {
-        assertTrue(ApiClient.isLocalNetworkHost("192.168.0.10"))
-        assertTrue(ApiClient.isLocalNetworkHost("10.0.2.2"))
-        assertTrue(ApiClient.isLocalNetworkHost("172.20.1.5"))
-        assertTrue(ApiClient.isLocalNetworkHost("erp.local"))
-        assertFalse(ApiClient.isLocalNetworkHost("190.102.41.159"))
-        assertFalse(ApiClient.isLocalNetworkHost("172.32.0.1"))
-        assertFalse(ApiClient.isLocalNetworkHost("erp.exemplo.com.br"))
-    }
 }

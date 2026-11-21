@@ -158,8 +158,8 @@ fun HomeScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("Agenda de hoje", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                             Row(Modifier.clickable { onNavigate("agenda") }, verticalAlignment = Alignment.CenterVertically) {
-                                Text("Ver tudo", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
-                                Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.primary)
+                                Text("Ver tudo", color = com.phdevtech.cicloserp.ui.theme.Web.accentText, style = MaterialTheme.typography.bodyMedium)
+                                Icon(Icons.Outlined.ChevronRight, null, tint = com.phdevtech.cicloserp.ui.theme.Web.accentText)
                             }
                         }
                     }
@@ -169,7 +169,7 @@ fun HomeScreen(
                         Column {
                             Row {
                                 Text("${h.done}/$total OS finalizadas", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                                Text("${(pct * 100).toInt()}%", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                                Text("${(pct * 100).toInt()}%", color = com.phdevtech.cicloserp.ui.theme.Web.accentText, fontWeight = FontWeight.SemiBold)
                             }
                             LinearProgressIndicator(
                                 progress = { pct }, Modifier.fillMaxWidth().padding(top = 6.dp),
