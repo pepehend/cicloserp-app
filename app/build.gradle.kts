@@ -11,8 +11,10 @@ android {
         applicationId = "com.phdevtech.cicloserp"
         minSdk = 28
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        // Versão do app (regras no README): versionName = MAIOR.MENOR.CORREÇÃO
+        // e versionCode = MAIOR*10000 + MENOR*100 + CORREÇÃO
+        versionCode = 500
+        versionName = "0.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

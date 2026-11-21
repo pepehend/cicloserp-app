@@ -40,6 +40,11 @@ fun AccountScreen(state: AuthState.LoggedIn, pad: PaddingValues) {
                 Text(me.email, style = MaterialTheme.typography.bodyMedium)
                 me.phone?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                 Text(if (me.isAdmin) "Administrador" else me.profileName ?: "Usuário", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                val appVersion = remember {
+                    runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: "?"
+                }
+                Text("Aplicativo: versão $appVersion", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("Servidor: ${state.serverUrl}${state.serverVersion?.let { " (v$it)" } ?: ""}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
