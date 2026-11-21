@@ -2,10 +2,17 @@ package com.phdevtech.cicloserp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+/** Cor de destaque padrão do CiclosERP web (#b02a37). */
+val Brand = Color(0xFFB02A37)
+val BrandDark = Color(0xFF8A1F2A)
+val BrandLight = Color(0xFFFFB3B5)
+val BrandContainer = Color(0xFFFFDADA)
+val OnBrandContainer = Color(0xFF410008)
+val BrandContainerDark = Color(0xFF6E1520)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+// Situação da OS (mesmas ideias de cor do app do técnico web)
+val StatusOpen = Color(0xFF6C757D)
+val StatusScheduled = Color(0xFF0D6EFD)
+val StatusRunning = Color(0xFFFD7E14)
+val StatusPaused = Color(0xFFFFC107)
+val StatusDone = Color(0xFF198754)
