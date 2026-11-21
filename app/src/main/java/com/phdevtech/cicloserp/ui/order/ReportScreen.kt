@@ -1,4 +1,13 @@
 package com.phdevtech.cicloserp.ui.order
+import com.phdevtech.cicloserp.ui.common.IconTile
+import com.phdevtech.cicloserp.data.model.OrderStatus
+import androidx.compose.material.icons.outlined.DirectionsCar
+import androidx.compose.material.icons.outlined.Check
+import com.phdevtech.cicloserp.ui.common.dashed
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material.icons.outlined.Chat
 
 import android.content.Intent
 import androidx.compose.foundation.Image
@@ -122,16 +131,15 @@ fun ReportScreen(me: Me, id: Int, onBack: () -> Unit, page: String = "relato") {
             var signer by rememberSaveable(o.id) { mutableStateOf(o.signerName.orEmpty()) }
             var doc by rememberSaveable(o.id) { mutableStateOf(Fmt.doc(o.signerDoc)) }
             var email by rememberSaveable(o.id) { mutableStateOf(o.customerEmail.orEmpty()) }
-            var signing by rememberSaveable(o.id) { mutableStateOf(false) }
+            var sigNew by rememberSaveable(o.id) { mutableStateOf<String?>(null) }
+            var sigDialog by remember { mutableStateOf(false) }
             var removeSig by rememberSaveable(o.id) { mutableStateOf(false) }
             val pad2 = rememberSignatureState()
             val ctx = LocalContext.current
             val title = when (page) { "km" -> "Quilometragem"; "assinar" -> "Assinar e enviar"; else -> "Relato" }
-            val save = {
-                // Desenhou: assinatura nova; pediu para remover sem desenhar: apaga; senão mantém a salva
-                val sig: String? = when { !pad2.isEmpty -> pad2.toDataUrl(); removeSig -> ""; else -> null }
-                vm.run("Salvo", then = onBack) { saveReport(id, report, km, signer, doc.filter(Char::isDigit), sig) }
-            }
+            // Desenhou: assinatura nova; pediu para remover: apaga ("" ); senão mantém a salva (null)
+            val sigToSave = { if (sigNew != null) sigNew else if (removeSig) "" else null }
+            val save = { vm.run("Salvo", then = onBack) { saveReport(id, report, km, signer, doc.filter(Char::isDigit), sigToSave()) } }
             TkPage(title, onBack, save, snack, locked = !editable) {
                 when (page) {
                     "km" -> WebCard(padding = 14.dp) {
@@ -141,62 +149,83 @@ fun ReportScreen(me: Me, id: Int, onBack: () -> Unit, page: String = "relato") {
                         WebField(report, { report = it.take(10000) }, Modifier.fillMaxWidth(), label = "O que foi feito", placeholder = "Descreva o atendimento", minLines = 6)
                     }
                     else -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        // quadro da assinatura (.tk-sigbox): tracejado cinza; toque para colher
-                        if (!signing && o.signature != null && !removeSig) {
-                            Images.decodeDataUrl(o.signature)?.let {
-                                Image(it, "Assinatura salva", Modifier.fillMaxWidth().height(160.dp).background(Color.White, RoundedCornerShape(8.dp)), contentScale = ContentScale.Fit)
+                        // pendências que ainda impedem o envio (as da própria assinatura não contam)
+                        val pend = o.pending.filter { !Regex("assinatura|nome de quem|CPF/CNPJ de quem", RegexOption.IGNORE_CASE).containsMatchIn(it) }
+                        if (pend.isNotEmpty() && !o.isDone) Column(
+                            Modifier.fillMaxWidth().background(Web.warnSoft, RoundedCornerShape(14.dp)).border(1.dp, Web.warn.copy(alpha = 0.4f), RoundedCornerShape(14.dp)).padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(Icons.Outlined.WarningAmber, null, Modifier.size(20.dp), tint = Web.warn)
+                                Text("Antes de enviar falta:", color = Web.warn, fontWeight = FontWeight.Bold)
                             }
-                            if (editable) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                WebButton("Colher de novo", { signing = true })
-                                WebButton("Remover", { removeSig = true }, danger = true)
-                            }
-                        } else if (editable && signing) {
-                            SignaturePad(pad2)
-                            WebButton("Limpar", pad2::clear)
-                        } else {
+                            pend.forEach { Text(it, color = Web.text, fontSize = 13.6.sp) }
+                        }
+                        WebCard(padding = 14.dp) {
+                            // quadro da assinatura (.tk-sigbox): tracejado cinza; toque para colher
+                            val shownSig = if (removeSig) null else (sigNew ?: o.signature)
                             Box(
-                                Modifier.fillMaxWidth().height(140.dp).background(Web.surface2, RoundedCornerShape(12.dp)).border(1.5.dp, Web.line, RoundedCornerShape(12.dp))
-                                    .clickable(enabled = editable) { signing = true; removeSig = false },
+                                Modifier.fillMaxWidth().height(140.dp).clip(RoundedCornerShape(12.dp)).background(Web.surface2).dashed(Web.line, 12.dp)
+                                    .clickable(enabled = editable) { pad2.clear(); sigDialog = true },
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                val img = remember(shownSig?.length) { Images.decodeDataUrl(shownSig) }
+                                if (img != null) Image(img, "Assinatura", Modifier.fillMaxSize().padding(6.dp).background(Color.White, RoundedCornerShape(8.dp)), contentScale = ContentScale.Fit)
+                                else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     Icon(Icons.Outlined.Draw, null, Modifier.size(20.dp), tint = Web.muted)
-                                    Text(if (editable) "Toque para colher a assinatura" else "Sem assinatura", color = Web.muted, fontSize = 14.sp)
+                                    Text("Toque para colher a assinatura", color = Web.muted, fontSize = 14.sp)
                                 }
                             }
+                            if (shownSig != null && editable) Text(
+                                "Remover assinatura", Modifier.padding(vertical = 6.dp).clickable { sigNew = null; removeSig = true }, color = Web.accent, fontSize = 13.6.sp,
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            WebField(signer, { signer = it.take(120) }, Modifier.fillMaxWidth(), label = "Nome de quem assinou", capitalization = KeyboardCapitalization.Words, enabled = editable)
+                            Spacer(Modifier.height(10.dp))
+                            WebField(doc, { v -> doc = Fmt.doc(v.filter(Char::isDigit).take(14)) }, Modifier.fillMaxWidth(), label = "CPF/CNPJ de quem assinou", placeholder = "CPF ou CNPJ", keyboardType = KeyboardType.Number, enabled = editable)
                         }
-                        WebField(signer, { signer = it.take(120) }, Modifier.fillMaxWidth(), label = "Nome de quem assinou", capitalization = KeyboardCapitalization.Words)
-                        WebField(doc, { v -> doc = Fmt.doc(v.filter(Char::isDigit).take(14)) }, Modifier.fillMaxWidth(), label = "CPF/CNPJ de quem assinou", placeholder = "CPF ou CNPJ", keyboardType = KeyboardType.Number)
                         WebCard(padding = 14.dp) {
                             WebField(email, { email = it }, Modifier.fillMaxWidth(), label = "Enviar a OS digital para o e-mail", placeholder = "email@cliente.com", keyboardType = KeyboardType.Email, capitalization = KeyboardCapitalization.None)
                             Spacer(Modifier.height(10.dp))
                             PillButton("Enviar por e-mail", {
-                                val link = o.publicUrl.orEmpty()
-                                ctx.startActivity(Intent(Intent.ACTION_SENDTO, "mailto:${email.trim()}".toUri()).apply {
-                                    putExtra(Intent.EXTRA_SUBJECT, "Ordem de serviço #${o.id}"); putExtra(Intent.EXTRA_TEXT, "Segue a ordem de serviço #${o.id}.\n$link")
-                                })
-                            }, Modifier.fillMaxWidth(), icon = Icons.Outlined.Email, enabled = email.contains('@'))
+                                // salva o que mudou e manda a OS digital pelo servidor (como no web)
+                                vm.run("OS enviada por e-mail") {
+                                    if (editable) saveReport(id, report, km, signer, doc.filter(Char::isDigit), sigToSave())
+                                    sendOrder(id, email)
+                                }
+                            }, Modifier.fillMaxWidth(), icon = Icons.Outlined.Email, enabled = email.contains('@') && !busy)
                             Spacer(Modifier.height(8.dp))
                             PillButton("Enviar pelo WhatsApp", {
-                                val phone = o.customerPhone.orEmpty().filter { it.isDigit() }.let { if (it.length in 10..11) "55$it" else it }
+                                val phone = o.customerPhone.orEmpty().filter { it.isDigit() }.let { if (it.length >= 10) "55$it" else "" }
                                 ctx.startActivity(Intent(Intent.ACTION_VIEW, "https://wa.me/$phone?text=${android.net.Uri.encode("Ordem de serviço #${o.id}: ${o.publicUrl.orEmpty()}")}".toUri()))
-                            }, Modifier.fillMaxWidth(), enabled = !o.publicUrl.isNullOrBlank())
+                            }, Modifier.fillMaxWidth(), icon = Icons.Outlined.Chat, enabled = !o.publicUrl.isNullOrBlank())
                         }
                     }
                 }
+                // janela "Assinatura do cliente" (.signaturePad do web)
+                if (sigDialog) AlertDialog(
+                    onDismissRequest = { sigDialog = false }, containerColor = Web.surface,
+                    title = { Text("Assinatura do cliente") },
+                    text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { SignaturePad(pad2); WebButton("Limpar", pad2::clear) } },
+                    confirmButton = { TextButton({ if (!pad2.isEmpty) { sigNew = pad2.toDataUrl(); removeSig = false }; sigDialog = false }) { Text("Salvar", color = Web.accent) } },
+                    dismissButton = { TextButton({ sigDialog = false }) { Text("Cancelar", color = Web.accent) } },
+                )
                 if (busy) Text("Salvando…", color = Web.muted, modifier = Modifier.padding(top = 8.dp))
             }
         }
     }
 }
 
-/** Pausas: totais de deslocamento, pausa e trabalho, e a lista de atividades (check-in, pausas, check-out). */
+/** Pausas: totais de deslocamento, pausa e trabalho, lista de atividades com ícone e, em andamento, os botões Pausar/Retomar atendimento. */
 @Composable
 fun PausesScreen(id: Int, onBack: () -> Unit) {
     val vm = appViewModel(key = "pau$id") { OrderViewModel(it, id) }
     val state by vm.state.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
     val snack = remember { SnackbarHostState() }
+    var pauseDialog by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { vm.load() }
+    LaunchedEffect(vm) { vm.messages.collect { snack.showSnackbar(it) } }
     when (val s = state) {
         Load.Loading -> LoadingBox()
         is Load.Error -> ErrorBox(s.message, onRetry = vm::load)
@@ -218,26 +247,31 @@ fun PausesScreen(id: Int, onBack: () -> Unit) {
                     if (o.hours.isEmpty()) Text("Nenhuma atividade registrada.", Modifier.fillMaxWidth().padding(20.dp), color = Web.muted, textAlign = TextAlign.Center)
                     o.hours.forEachIndexed { i, h ->
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            val l = h.label.lowercase()
+                            val isPause = l.contains("pausa")
                             val (icon, tint) = when {
-                                h.label.contains("pausa", true) && h.label.contains("início", true) -> Icons.Outlined.Pause to Web.warn
-                                h.label.contains("check-out", true) -> Icons.Outlined.CheckCircle to Web.ok
-                                h.label.contains("check-in", true) -> Icons.Outlined.PlayArrow to Color(0xFF2563EB)
-                                else -> Icons.Outlined.Schedule to Web.muted
+                                isPause && (l.contains("início") || l.contains("inicio") || !l.contains("fim")) -> Icons.Outlined.Pause to Color(0xFFDC2626)
+                                isPause -> Icons.Outlined.PlayArrow to Color(0xFFDC2626)
+                                l.contains("check-out") -> Icons.Outlined.Check to Color(0xFF2563EB)
+                                l.contains("check-in") -> Icons.Outlined.PlayArrow to Color(0xFF2563EB)
+                                else -> Icons.Outlined.DirectionsCar to Color(0xFF2563EB)
                             }
-                            Icon(icon, null, Modifier.size(22.dp), tint = tint)
+                            IconTile(icon, tint, size = 34.dp)
                             Column(Modifier.weight(1f)) {
-                                Text(h.label + (h.reason?.let { " ($it)" } ?: ""), color = Web.text, fontWeight = FontWeight.SemiBold, fontSize = 14.4.sp)
-                                Text(Fmt.dateTime(h.at), color = Web.muted, fontSize = 12.8.sp)
+                                Text(h.label, color = Web.text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text(Fmt.dateTime(h.at) + (h.reason?.let { " · $it" } ?: ""), color = Web.muted, fontSize = 12.8.sp)
                             }
                         }
-                        if (i < o.hours.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(Web.line))
+                        if (i < o.hours.lastIndex) Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(Web.line))
                     }
                 }
+                if (o.status == OrderStatus.EM_EXECUCAO) PillButton("Pausar atendimento", { pauseDialog = true }, Modifier.fillMaxWidth().padding(top = 10.dp), icon = Icons.Outlined.Pause, enabled = !busy)
+                else if (o.status == OrderStatus.PAUSADA) PillButton("Retomar atendimento", { vm.setStatus(OrderStatus.EM_EXECUCAO, null) }, Modifier.fillMaxWidth().padding(top = 10.dp), filled = true, icon = Icons.Outlined.PlayArrow, enabled = !busy)
+                if (pauseDialog) PauseDialog(onDismiss = { pauseDialog = false }, onConfirm = { pauseDialog = false; vm.setStatus(OrderStatus.PAUSADA, it) })
             }
         }
     }
 }
-
 /** Peças e Serviços lançados na OS (só consulta; lançar e revisar continua no sistema web). */
 @Composable
 fun OrderItemsScreen(id: Int, onBack: () -> Unit) {

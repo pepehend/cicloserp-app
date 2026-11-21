@@ -1,4 +1,11 @@
 package com.phdevtech.cicloserp.ui.common
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.border
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -107,43 +114,58 @@ fun EmptyBox(message: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** Cartão de uma OS nas listas. */
+/**
+ * Cartão de uma OS nas listas (.tk-task): horário e dia à esquerda com faixa, cliente e situação, tipo/descrição e as etiquetas
+ * "ID: n", "N pendência(s)" (amarela, só se a OS não está concluída) e o técnico quando é de outra pessoa.
+ */
 @Composable
 fun OrderCard(o: OrderSummary, onClick: () -> Unit, showTechnician: Boolean = false, showDate: Boolean = false) {
-    AppCard(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Column(Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("OS #${o.id}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.weight(1f))
-                StatusChip(o.status, o.statusLabel)
+    val shape = RoundedCornerShape(14.dp)
+    val dt = Fmt.parse(o.scheduledAt)
+    val day = when {
+        dt == null -> ""
+        dt.toLocalDate() == java.time.LocalDate.now() -> "HOJE"
+        else -> "%02d/%02d".format(dt.dayOfMonth, dt.monthValue)
+    }
+    val (stBg, stFg) = when (o.status) {
+        OrderStatus.CONCLUIDA -> com.phdevtech.cicloserp.ui.theme.Web.okSoft to com.phdevtech.cicloserp.ui.theme.Web.ok
+        OrderStatus.EM_EXECUCAO, OrderStatus.A_CAMINHO -> Color(0xFF2563EB).copy(alpha = 0.14f) to Color(0xFF2563EB)
+        OrderStatus.PAUSADA -> com.phdevtech.cicloserp.ui.theme.Web.warnSoft to com.phdevtech.cicloserp.ui.theme.Web.warn
+        OrderStatus.AGENDADA -> com.phdevtech.cicloserp.ui.theme.Web.accentSoft to com.phdevtech.cicloserp.ui.theme.Web.accent
+        else -> com.phdevtech.cicloserp.ui.theme.Web.surface2 to com.phdevtech.cicloserp.ui.theme.Web.muted
+    }
+    val web = com.phdevtech.cicloserp.ui.theme.Web
+    Row(
+        Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min).clip(shape).background(web.surface).border(1.dp, web.line, shape).clickable(onClick = onClick).padding(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(
+            Modifier.width(52.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+        ) {
+            Text(if (dt != null) Fmt.time(o.scheduledAt) else "--:--", color = web.text, fontSize = 15.75.sp, fontWeight = FontWeight.Bold)
+            Text(if (showDate && dt != null && day != "HOJE") Fmt.date(o.scheduledAt).take(5) else day, color = web.muted, fontSize = 9.9.sp, letterSpacing = 0.4.sp)
+        }
+        Box(Modifier.width(3.dp).fillMaxHeight().background(web.line))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+                Text(o.customer, Modifier.weight(1f), color = web.text, fontSize = 14.7.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(o.statusLabel.lowercase(), Modifier.clip(RoundedCornerShape(50)).background(stBg).padding(horizontal = 9.dp, vertical = 2.dp), color = stFg, fontSize = 11.2.sp, maxLines = 1)
             }
-            Spacer(Modifier.padding(2.dp))
-            Text(o.customer, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(o.description, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.padding(3.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (o.scheduledAt != null) {
-                    Icon(Icons.Outlined.Schedule, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(4.dp))
-                    Text(if (showDate) Fmt.dateTime(o.scheduledAt) else Fmt.time(o.scheduledAt), style = MaterialTheme.typography.bodySmall)
-                } else {
-                    Text("Sem agendamento", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                o.taskTypeName?.let { Text("  ·  $it", style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                Spacer(Modifier.weight(1f))
+            val sub = o.taskTypeName ?: o.description
+            if (sub.isNotBlank()) Text(sub, color = web.muted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 2.dp)) {
+                Text("ID: ${o.id}", Modifier.clip(RoundedCornerShape(50)).background(web.surface2).border(1.dp, web.line, RoundedCornerShape(50)).padding(horizontal = 9.dp, vertical = 2.dp), color = web.muted, fontSize = 11.2.sp)
                 if (o.pending > 0 && o.status != OrderStatus.CONCLUIDA) {
-                    Icon(Icons.Outlined.WarningAmber, null, Modifier.size(16.dp), tint = StatusPaused)
-                    Spacer(Modifier.width(2.dp))
-                    Text("${o.pending}", style = MaterialTheme.typography.bodySmall)
+                    Text("${o.pending} pendência${if (o.pending > 1) "s" else ""}", Modifier.clip(RoundedCornerShape(50)).background(web.warnSoft).padding(horizontal = 9.dp, vertical = 2.dp), color = web.warn, fontSize = 11.2.sp)
                 }
-            }
-            if (showTechnician && o.technicianName != null) {
-                Text("Técnico: ${o.technicianName}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (showTechnician && o.technicianName != null) {
+                    Text(o.technicianName, Modifier.clip(RoundedCornerShape(50)).background(web.surface2).border(1.dp, web.line, RoundedCornerShape(50)).padding(horizontal = 9.dp, vertical = 2.dp), color = web.muted, fontSize = 11.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
         }
     }
 }
-
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, modifier.padding(top = 8.dp, bottom = 4.dp), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)

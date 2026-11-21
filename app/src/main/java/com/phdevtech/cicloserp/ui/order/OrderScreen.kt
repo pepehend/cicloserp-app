@@ -67,6 +67,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -113,6 +114,7 @@ fun canChange(me: Me, o: OrderDetail) = !o.isDone && (me.can("ordens.execute") |
 class OrderNav(
     val onBack: () -> Unit,
     val onQuestionnaire: (Int) -> Unit,
+    val onQuestionnaires: () -> Unit,
     val onPhotos: () -> Unit,
     val onPage: (String) -> Unit,          // km | relato | assinar | pausas | pecas
     val onCustomer: ((Int) -> Unit)?,
@@ -134,7 +136,7 @@ fun OrderScreen(me: Me, id: Int, nav: OrderNav) {
         snackbarHost = { SnackbarHost(snack) },
         bottomBar = {
             (state as? Load.Ok)?.data?.let { o ->
-                if (me.can("ordens.execute")) ActionBar(o, busy, onStatus = { to, reason -> vm.setStatus(to, reason) }, onShowPending = { tab = 2 })
+                if (me.can("ordens.execute")) ActionBar(o, busy, onStatus = { to, reason -> vm.setStatus(to, reason) }, onShowPending = { tab = 2; vm.message("Resolva as pendências antes do check-out") })
             }
         },
     ) { pad ->
@@ -153,7 +155,10 @@ fun OrderScreen(me: Me, id: Int, nav: OrderNav) {
                         Column(Modifier.weight(1f)) {
                             Text(o.customerName, color = Web.text, fontSize = 20.25.sp, fontWeight = FontWeight.Bold)
                             Text("Tarefa #${o.id}", color = Web.muted, fontSize = 13.sp)
-                            StatusTag(o.status, o.statusLabel, Modifier.padding(top = 4.dp))
+                            Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                StatusTag(o.status, o.statusLabel)
+                                if (o.pending.isNotEmpty() && !o.isDone) PendingTag(o.pending.size)
+                            }
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             o.customerPhone?.let { phone ->
@@ -169,12 +174,12 @@ fun OrderScreen(me: Me, id: Int, nav: OrderNav) {
                         if (o.isDone) "Check-out feito: a ordem está concluída. Pelo celular dá só para consultar; para alterar, use o computador."
                         else "Você não tem permissão para preencher o relatório desta OS.",
                     )
-                    Tabs(listOf("Detalhes", "Relatório", "Pendências"), tab) { tab = it }
+                    Tabs(listOf("Detalhes", "Relatório", if (o.pending.isNotEmpty() && !o.isDone) "Pendências (${o.pending.size})" else "Pendências"), tab) { tab = it }
                     Spacer(Modifier.height(12.dp))
                     when (tab) {
                         0 -> DetailsTab(o, nav, onReportTab = { tab = 1 })
                         1 -> ReportTab(o, nav)
-                        else -> PendingTab(o)
+                        else -> PendingTab(o, nav, onReportTab = { tab = 1 })
                     }
                     Spacer(Modifier.height(24.dp))
                 }
@@ -186,7 +191,7 @@ fun OrderScreen(me: Me, id: Int, nav: OrderNav) {
 // ---------------------------------------------------------------- peças comuns (.tk-*)
 
 @Composable
-private fun IconBtn(icon: ImageVector, desc: String, size: Dp = 40.dp, bordered: Boolean = true, onClick: () -> Unit) {
+internal fun IconBtn(icon: ImageVector, desc: String, size: Dp = 40.dp, bordered: Boolean = true, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Box(
         Modifier.size(size).clip(shape).then(if (bordered) Modifier.background(Web.surface).border(1.dp, Web.line, shape) else Modifier).clickable(onClick = onClick),
@@ -207,9 +212,15 @@ private fun StatusTag(status: String, label: String, modifier: Modifier = Modifi
     Text(label, modifier.clip(RoundedCornerShape(50)).background(bg).padding(horizontal = 9.dp, vertical = 2.dp), color = fg, fontSize = 11.2.sp)
 }
 
+/** .tk-tag.warn: "N pendência(s)". */
+@Composable
+fun PendingTag(count: Int, modifier: Modifier = Modifier) {
+    Text("$count pendência${if (count > 1) "s" else ""}", modifier.clip(RoundedCornerShape(50)).background(Web.warnSoft).padding(horizontal = 9.dp, vertical = 2.dp), color = Web.warn, fontSize = 11.2.sp)
+}
+
 /** .tk-lock: aviso cinza com cadeado. */
 @Composable
-private fun LockNote(text: String) {
+internal fun LockNote(text: String) {
     Row(
         Modifier.fillMaxWidth().padding(bottom = 10.dp).background(Web.surface2, RoundedCornerShape(12.dp)).border(1.dp, Web.line, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top,
@@ -221,7 +232,7 @@ private fun LockNote(text: String) {
 
 /** .tk-tabs: abas com sublinhado vermelho na escolhida. */
 @Composable
-private fun Tabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+internal fun Tabs(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     Column {
         Row(Modifier.fillMaxWidth()) {
             labels.forEachIndexed { i, t ->
@@ -328,16 +339,18 @@ private fun NavRow(icon: ImageVector, color: Color, label: String, onClick: () -
     }
 }
 
-/** Relatório: checklist (fotos, questionário, quilometragem, relato, assinar e enviar, pausas) com o progresso. */
+/** Relatório: checklist (fotos, questionário, quilometragem, relato, assinar e enviar, pausas) com o progresso e os avisos de pendência. */
 @Composable
 private fun ReportTab(o: OrderDetail, nav: OrderNav) {
     val photosDone = o.photos.isNotEmpty()
-    val qDone = o.questionnaires.isNotEmpty() && o.questionnaires.all { it.answered && it.missing.isEmpty() }
+    val qPend = o.questionnaires.count { !it.answered || it.missing.isNotEmpty() }
+    val qDone = o.questionnaires.isNotEmpty() && qPend == 0
     val kmDone = o.km != null
     val reportDone = !o.report.isNullOrBlank()
     val signDone = o.signature != null
     val flags = listOf(photosDone, qDone, kmDone, reportDone, signDone)
     val done = flags.count { it }
+    val pausedNow = o.status == OrderStatus.PAUSADA
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         TkCard {
             Row {
@@ -353,30 +366,26 @@ private fun ReportTab(o: OrderDetail, nav: OrderNav) {
             Column(Modifier.padding(horizontal = 8.dp)) {
                 CheckRow(Icons.Outlined.Image, "Fotos", if (photosDone) "${o.photos.size} foto(s)" else null, photosDone, onClick = nav.onPhotos)
                 Divider()
-                if (o.questionnaires.isEmpty()) CheckRow(Icons.Outlined.Description, "Questionário", null, false) {}
-                o.questionnaires.forEach { q ->
-                    val sub = when {
-                        q.missing.isNotEmpty() && q.answered -> "Faltam obrigatórias"
-                        q.answered -> "Respondido"
-                        else -> null
-                    }
-                    CheckRow(Icons.Outlined.Description, if (o.questionnaires.size > 1) q.name else "Questionário", sub, q.answered && q.missing.isEmpty()) { nav.onQuestionnaire(q.id) }
-                }
+                CheckRow(
+                    Icons.Outlined.Description, "Questionário",
+                    if (o.questionnaires.isEmpty()) "Nenhum questionário" else if (qPend > 0) "$qPend questionário${if (qPend > 1) "s" else ""} pendente${if (qPend > 1) "s" else ""}" else "Respondido",
+                    qDone, warn = qPend > 0, onClick = nav.onQuestionnaires,
+                )
                 Divider()
-                CheckRow(Icons.Outlined.Speed, "Quilometragem", o.km?.removeSuffix(".00")?.let { "$it km" }, kmDone) { nav.onPage("km") }
+                CheckRow(Icons.Outlined.Speed, "Quilometragem", o.km?.removeSuffix(".00")?.replace('.', ',')?.let { "$it km" }, kmDone) { nav.onPage("km") }
                 Divider()
-                CheckRow(Icons.Outlined.Edit, "Relato", if (reportDone) "Preenchido" else null, reportDone) { nav.onPage("relato") }
+                CheckRow(Icons.Outlined.Edit, "Relato", null, reportDone) { nav.onPage("relato") }
                 Divider()
-                CheckRow(Icons.Outlined.Draw, "Assinar e enviar", o.signerName?.let { "Assinado por $it" }, signDone) { nav.onPage("assinar") }
+                CheckRow(Icons.Outlined.Draw, "Assinar e enviar", o.signerName, signDone) { nav.onPage("assinar") }
                 Divider()
-                CheckRow(Icons.Outlined.Pause, "Pausas", null, null, tint = Red) { nav.onPage("pausas") }
+                CheckRow(Icons.Outlined.Pause, "Pausas", if (o.hoursPause > 0) "${Fmt.duration(o.hoursPause)} em pausa" else null, null, tint = Red, warn = pausedNow) { nav.onPage("pausas") }
             }
         }
         TkCard {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Icon(Icons.Outlined.Schedule, null, Modifier.size(20.dp), tint = Web.text)
                 Text(
-                    "Check-in: ${o.startedAt?.let { Fmt.time(it) + "h" } ?: "--:--"}  ·  Check-out: ${o.finishedAt?.let { Fmt.time(it) + "h" } ?: "--:--"}",
+                    "Check-in: ${o.startedAt?.let { Fmt.time(it) + "h" } ?: "00:00h"}  ·  Check-out: ${o.finishedAt?.let { Fmt.time(it) + "h" } ?: "00:00h"}",
                     color = Web.muted, fontSize = 13.8.sp,
                 )
             }
@@ -384,43 +393,80 @@ private fun ReportTab(o: OrderDetail, nav: OrderNav) {
     }
 }
 
-/** Linha do checklist: bolinha de situação (null = sem bolinha), ícone, rótulo, subtítulo e seta. */
+/** Bolinha de situação: cheia e verde (feito), tracejada amarela (pendente/atenção) ou vazia. */
 @Composable
-private fun CheckRow(icon: ImageVector, label: String, sub: String?, done: Boolean?, tint: Color? = null, onClick: () -> Unit) {
+private fun StatusDot(done: Boolean?, warn: Boolean) {
+    if (done == true) {
+        Box(Modifier.size(22.dp).clip(CircleShape).background(Web.ok), contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Check, null, Modifier.size(14.dp), tint = Color.White) }
+    } else if (warn) {
+        val c = Web.warn
+        Box(Modifier.size(22.dp).drawBehind {
+            drawCircle(c, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(6f, 5f))))
+        })
+    } else {
+        Box(Modifier.size(22.dp).clip(CircleShape).background(Web.surface2).border(1.5.dp, Web.line, CircleShape))
+    }
+}
+
+/** Linha do checklist: bolinha de situação, ícone, rótulo, subtítulo (amarelo quando há pendência) e seta. */
+@Composable
+private fun CheckRow(icon: ImageVector, label: String, sub: String?, done: Boolean?, tint: Color? = null, warn: Boolean = false, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(22.dp).clip(CircleShape).background(if (done == true) Web.ok else Web.surface2).border(1.5.dp, if (done == true) Web.ok else Web.line, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) { if (done == true) Icon(Icons.Outlined.Check, null, Modifier.size(14.dp), tint = Color.White) }
+        StatusDot(done, warn)
         Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(if (tint != null) tint.copy(alpha = 0.14f) else Web.surface2), contentAlignment = Alignment.Center) {
             Icon(icon, null, Modifier.size(18.dp), tint = tint ?: Web.muted)
         }
         Column(Modifier.weight(1f)) {
             Text(label, color = Web.text, fontSize = 15.sp)
-            if (sub != null) Text(sub, color = Web.muted, fontSize = 12.5.sp)
+            if (sub != null) Text(sub, color = if (warn) Web.warn else Web.muted, fontSize = 12.5.sp)
         }
         Icon(Icons.Outlined.ChevronRight, null, Modifier.size(16.dp), tint = Web.muted)
     }
 }
 
+/** Página para onde cada pendência leva (igual ao web): questionário, relato, assinatura, foto, km ou o relatório. */
+private fun pendingTarget(text: String): String = when {
+    Regex("questionário", RegexOption.IGNORE_CASE).containsMatchIn(text) -> "questionarios"
+    Regex("relato", RegexOption.IGNORE_CASE).containsMatchIn(text) -> "relato"
+    Regex("assin|cpf|nome de quem", RegexOption.IGNORE_CASE).containsMatchIn(text) -> "assinar"
+    Regex("foto", RegexOption.IGNORE_CASE).containsMatchIn(text) -> "fotos"
+    Regex("km", RegexOption.IGNORE_CASE).containsMatchIn(text) -> "km"
+    else -> "relatorio"
+}
+
+/** Aba Pendências: cartão amarelo "N pendência(s)" com cada item clicável (leva à página que resolve), ou "Nenhuma pendência." */
 @Composable
-private fun PendingTab(o: OrderDetail) {
+private fun PendingTab(o: OrderDetail, nav: OrderNav, onReportTab: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (o.pending.isEmpty()) Text("Nenhuma pendência.", Modifier.fillMaxWidth().padding(vertical = 28.dp), color = Web.muted, fontSize = 15.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        if (o.pending.isEmpty() || o.isDone) Text("Nenhuma pendência.", Modifier.fillMaxWidth().padding(vertical = 28.dp), color = Web.muted, fontSize = 15.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         else Column(
             Modifier.fillMaxWidth().background(Web.warnSoft, RoundedCornerShape(14.dp)).border(1.dp, Web.warn.copy(alpha = 0.4f), RoundedCornerShape(14.dp)).padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(Icons.Outlined.WarningAmber, null, Modifier.size(20.dp), tint = Web.warn)
-                Text("Falta para concluir", color = Web.warn, fontWeight = FontWeight.Bold)
+                Text("${o.pending.size} pendência${if (o.pending.size > 1) "s" else ""}", color = Web.warn, fontWeight = FontWeight.Bold)
             }
-            o.pending.forEach { Text(it, color = Web.text, fontSize = 13.6.sp) }
+            o.pending.forEach { p ->
+                Row(
+                    Modifier.fillMaxWidth().clickable {
+                        when (val target = pendingTarget(p)) {
+                            "questionarios" -> nav.onQuestionnaires()
+                            "fotos" -> nav.onPhotos()
+                            "relatorio" -> onReportTab()
+                            else -> nav.onPage(target)
+                        }
+                    }.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(p, Modifier.weight(1f), color = Web.text, fontSize = 14.sp)
+                    Icon(Icons.Outlined.ChevronRight, null, Modifier.size(16.dp), tint = Web.warn)
+                }
+            }
         }
         if (o.itemsReview > 0) Text("${o.itemsReview} item(ns) lançados na OS aguardam revisão do cadastro.", color = Web.muted, fontSize = 13.sp)
     }
 }
-
 /** .tk-actbar: barra fixa com A caminho / Check-in / Pausar / Retomar / Check-out, conforme as transições da OS. */
 @Composable
 private fun ActionBar(o: OrderDetail, busy: Boolean, onStatus: (String, String?) -> Unit, onShowPending: () -> Unit) {
@@ -466,7 +512,7 @@ private fun ActionBar(o: OrderDetail, busy: Boolean, onStatus: (String, String?)
 
 /** Motivo da pausa: lista de motivos (.tk-reasons) e campo livre. */
 @Composable
-private fun PauseDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+internal fun PauseDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     var reason by rememberSaveable { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss, containerColor = Web.surface,

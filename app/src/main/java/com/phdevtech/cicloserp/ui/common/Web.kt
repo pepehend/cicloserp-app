@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -130,13 +131,13 @@ fun WebField(
     value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier, label: String? = null, placeholder: String = "",
     help: String? = null, required: Boolean = false, keyboardType: KeyboardType = KeyboardType.Text, minLines: Int = 1,
     capitalization: KeyboardCapitalization = KeyboardCapitalization.Sentences, error: Boolean = false,
-    trailing: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null, enabled: Boolean = true,
 ) {
     var focused by remember { mutableStateOf(false) }
-    Column(modifier) {
+    Column(modifier.alpha(if (enabled) 1f else .6f)) {
         if (label != null) FieldLabel(label, required)
         BasicTextField(
-            value = value, onValueChange = onChange, singleLine = minLines == 1, minLines = minLines,
+            value = value, onValueChange = onChange, singleLine = minLines == 1, minLines = minLines, enabled = enabled, readOnly = !enabled,
             textStyle = TextStyle(color = Web.text, fontSize = 15.sp, lineHeight = 21.sp),
             cursorBrush = SolidColor(Web.accent),
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType, capitalization = capitalization),
@@ -292,4 +293,11 @@ fun WebTable(columns: List<Col>, rows: List<TRow>, modifier: Modifier = Modifier
             if (r < rows.lastIndex) Box(Modifier.width(total).height(1.dp).background(Web.line))
         }
     }
+}
+/** Contorno tracejado (.tk-sigbox, .tk-phadd): borda de 1,5dp em traços. */
+fun Modifier.dashed(color: Color, radius: Dp = 12.dp): Modifier = this.drawBehind {
+    drawRoundRect(
+        color, cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius.toPx()),
+        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(14f, 10f))),
+    )
 }

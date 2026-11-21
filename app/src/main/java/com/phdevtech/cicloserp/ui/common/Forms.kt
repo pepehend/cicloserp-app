@@ -132,9 +132,9 @@ fun DropdownF(
 /** Data (AAAA-MM-DD na API, dd/MM/aaaa na tela) escolhida num calendário. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DateF(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier.fillMaxWidth()) {
+fun DateF(label: String?, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier.fillMaxWidth(), enabled: Boolean = true) {
     var show by remember { mutableStateOf(false) }
-    WebPickBox(if (value.isBlank()) "" else Fmt.date(value), { show = true }, modifier, label, placeholder = "dd/mm/aaaa", icon = Icons.Outlined.CalendarMonth)
+    WebPickBox(if (value.isBlank()) "" else Fmt.date(value), { if (enabled) show = true }, modifier, label, placeholder = "dd/mm/aaaa", icon = Icons.Outlined.CalendarMonth)
     if (show) {
         val initial = runCatching { LocalDate.parse(value).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli() }.getOrNull()
         val st = rememberDatePickerState(initialSelectedDateMillis = initial)
@@ -154,9 +154,9 @@ fun DateF(label: String, value: String, onChange: (String) -> Unit, modifier: Mo
 /** Hora (HH:mm) escolhida num relógio. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimeF(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier.fillMaxWidth()) {
+fun TimeF(label: String?, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier.fillMaxWidth(), enabled: Boolean = true) {
     var show by remember { mutableStateOf(false) }
-    WebPickBox(value, { show = true }, modifier, label, placeholder = "--:--", icon = Icons.Outlined.Schedule)
+    WebPickBox(value, { if (enabled) show = true }, modifier, label, placeholder = "--:--", icon = Icons.Outlined.Schedule)
     if (show) {
         val h = value.take(2).toIntOrNull() ?: 9
         val m = value.drop(3).take(2).toIntOrNull() ?: 0

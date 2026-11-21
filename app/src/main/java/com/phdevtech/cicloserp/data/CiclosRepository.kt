@@ -150,6 +150,11 @@ class CiclosRepository(private val api: ApiClient, private val store: SessionSto
         api.post("so_photo_add", buildJsonObject { put("id", id); put("image", dataUrl); put("caption", caption) })
     }
 
+    /** Envia a OS digital por e-mail pelo servidor (POST so_send). */
+    suspend fun sendOrder(id: Int, email: String) {
+        api.post("so_send", buildJsonObject { put("id", id); put("kind", "os"); put("to", email.trim()) })
+    }
+
     suspend fun deletePhoto(photoId: Int) {
         api.post("so_photo_delete", buildJsonObject { put("photo_id", photoId) })
     }

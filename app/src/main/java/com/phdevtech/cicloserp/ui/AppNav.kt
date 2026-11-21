@@ -192,6 +192,7 @@ fun LoggedInApp(state: AuthState.LoggedIn) {
                 com.phdevtech.cicloserp.ui.order.OrderNav(
                     onBack = { nav.popBackStack() },
                     onQuestionnaire = { nav.navigate("os/$id/questionario/$it") },
+                    onQuestionnaires = { nav.navigate("os/$id/p/questionarios") },
                     onPhotos = { nav.navigate("os/$id/fotos") },
                     onPage = { nav.navigate("os/$id/p/$it") },
                     onCustomer = if (me.can("clientes")) ({ cid -> nav.navigate("cliente/$cid") }) else null,
@@ -207,6 +208,7 @@ fun LoggedInApp(state: AuthState.LoggedIn) {
                 "pausas" -> com.phdevtech.cicloserp.ui.order.PausesScreen(id, onBack = { nav.popBackStack() })
                 "pecas" -> com.phdevtech.cicloserp.ui.order.OrderItemsScreen(id, onBack = { nav.popBackStack() })
                 "orcamentos" -> com.phdevtech.cicloserp.ui.order.OrderQuotesScreen(onBack = { nav.popBackStack() })
+                "questionarios" -> com.phdevtech.cicloserp.ui.order.QuestionnairesListScreen(me, id, onBack = { nav.popBackStack() }, onOpen = { nav.navigate("os/$id/questionario/$it") })
                 else -> ReportScreen(me, id, onBack = { nav.popBackStack() }, page = page)
             }
         }
