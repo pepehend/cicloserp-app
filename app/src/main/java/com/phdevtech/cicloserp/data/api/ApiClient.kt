@@ -53,7 +53,8 @@ class ApiClient(
                 .apply { params.forEach { (k, v) -> if (v != null) addQueryParameter(k, v.toString()) } }
                 .build()
             val req = Request.Builder().url(url).header("Accept", "application/json")
-            token?.let { req.header("Authorization", "Bearer $it") }
+            // Os dois headers: hospedagens com PHP em CGI/FPM podem descartar o Authorization; o servidor aceita X-Api-Token também.
+            token?.let { req.header("Authorization", "Bearer $it").header("X-Api-Token", it) }
             if (body != null) req.post(body.toString().toRequestBody(JSON))
             val resp = try {
                 http.newCall(req.build()).execute()

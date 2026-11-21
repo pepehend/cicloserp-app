@@ -1,19 +1,16 @@
 package com.phdevtech.cicloserp.ui.products
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.Card
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -24,23 +21,35 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.phdevtech.cicloserp.data.model.Product
-import com.phdevtech.cicloserp.ui.common.EmptyBox
-import com.phdevtech.cicloserp.ui.common.ErrorBox
+import com.phdevtech.cicloserp.ui.common.AddButton
+import com.phdevtech.cicloserp.ui.common.Col
+import com.phdevtech.cicloserp.ui.common.LabeledCheck
 import com.phdevtech.cicloserp.ui.common.Load
 import com.phdevtech.cicloserp.ui.common.Loader
-import com.phdevtech.cicloserp.ui.common.LoadingBox
-import com.phdevtech.cicloserp.ui.common.SearchField
+import com.phdevtech.cicloserp.ui.common.PageHeader
+import com.phdevtech.cicloserp.ui.common.TRow
+import com.phdevtech.cicloserp.ui.common.WebButton
+import com.phdevtech.cicloserp.ui.common.WebCard
+import com.phdevtech.cicloserp.ui.common.WebField
+import com.phdevtech.cicloserp.ui.common.WebTable
 import com.phdevtech.cicloserp.ui.common.repository
+import com.phdevtech.cicloserp.ui.theme.Web
 import com.phdevtech.cicloserp.util.Fmt
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FileUpload
 
-/** Produtos e serviços (GET products, tabela products). [service] = lista de serviços. */
+private fun qty(v: Double): String = if (v % 1.0 == 0.0) v.toLong().toString() else "%.3f".format(v).trimEnd('0').trimEnd(',', '.')
+
+/**
+ * Produtos e serviços (GET products): título, botões, cartão "Buscar" com as opções e a tabela do sistema web.
+ * Produtos: Cód. fabricante | Produto | Localização | Estoque | Custo unit. | Preço | Margem. Serviços: Serviço | Preço.
+ */
 @Composable
-fun ProductsScreen(service: Boolean, pad: PaddingValues, onOpen: (Product) -> Unit = {}) {
+fun ProductsScreen(service: Boolean, pad: PaddingValues, canAdd: Boolean = false, onNew: () -> Unit = {}, onOpen: ((Product) -> Unit)? = null) {
     val repo = repository()
     val scope = rememberCoroutineScope()
     var query by rememberSaveable { mutableStateOf("") }
@@ -50,42 +59,53 @@ fun ProductsScreen(service: Boolean, pad: PaddingValues, onOpen: (Product) -> Un
     val loader = remember(type) { Loader(scope) { repo.products(type, query, inactive, low && !service) } }
     LaunchedEffect(type, query, inactive, low) { loader.load(debounceMs = if (query.isEmpty()) 0 else 350) }
 
-    Column(Modifier.fillMaxSize().padding(pad)) {
-        SearchField(query, { query = it }, if (service) "Buscar serviço" else "Nome, marca, SKU, código ou localização")
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (!service) FilterChip(low, { low = !low }, { Text("Estoque baixo") })
-            FilterChip(inactive, { inactive = !inactive }, { Text("Mostrar inativos") })
-        }
-        PullToRefreshBox(loader.refreshing, { loader.load(pull = true) }, Modifier.fillMaxSize()) {
-            when (val s = loader.state) {
-                Load.Loading -> LoadingBox()
-                is Load.Error -> ErrorBox(s.message, { loader.load() })
-                is Load.Ok -> LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (s.data.isEmpty()) item { EmptyBox(if (service) "Nenhum serviço encontrado." else "Nenhum produto encontrado.") }
-                    items(s.data, key = { it.id }) { p -> ProductCard(p) }
+    PullToRefreshBox(loader.refreshing, { loader.load(pull = true) }, Modifier.fillMaxSize().padding(pad)) {
+        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item {
+                PageHeader(
+                    if (service) "Serviços" else "Produtos",
+                    if (service) "Serviços que você presta, sem controle de estoque." else "Produtos que você vende e controla no estoque.",
+                )
+            }
+            if (canAdd) item {
+                Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+                    if (!service) WebButton("Importar planilha", {}, Modifier.padding(start = 16.dp, top = 6.dp, bottom = 6.dp), icon = Icons.Outlined.FileUpload, enabled = false)
+                    AddButton(if (service) "Novo serviço" else "Novo produto", onNew)
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun ProductCard(p: Product) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp)) {
-            Row {
-                Text(p.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(Fmt.money(p.salePrice), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            item {
+                WebCard(Modifier.padding(horizontal = 16.dp)) {
+                    WebField(query, { query = it }, Modifier.fillMaxWidth(), label = "Buscar", placeholder = if (service) "Nome do serviço" else "Nome, marca, código (SKU, fabricante ou referência)")
+                    Row(Modifier.padding(top = 4.dp)) {
+                        if (!service) LabeledCheck(low, { low = it }, "Abaixo do mínimo")
+                        LabeledCheck(inactive, { inactive = it }, "Mostrar inativos")
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    when (val s = loader.state) {
+                        Load.Loading -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Web.accent) }
+                        is Load.Error -> Text(s.message, color = Web.danger)
+                        is Load.Ok -> if (service) WebTable(
+                            listOf(Col("Serviço", 220.dp), Col("Preço", 110.dp, num = true)),
+                            s.data.map { p -> TRow(p.id, listOf(p.name, Fmt.money(p.salePrice)), onOpen?.let { { it(p) } }, badgeAfterFirst = if (p.active) null else "inativo") },
+                            empty = "Nenhum serviço encontrado. Cadastre o primeiro em Novo serviço.",
+                        ) else WebTable(
+                            listOf(Col("Cód. fabricante", 130.dp), Col("Produto", 220.dp), Col("Localização", 130.dp), Col("Estoque", 90.dp, num = true), Col("Custo unit.", 100.dp, num = true), Col("Preço", 100.dp, num = true), Col("Margem", 80.dp, num = true)),
+                            s.data.map { p ->
+                                val margin = if (p.salePrice > 0) (p.salePrice - p.avgCost) / p.salePrice * 100 else null
+                                TRow(
+                                    p.id,
+                                    listOf(p.mfrCode.orEmpty(), p.name, p.location.orEmpty(), "${qty(p.stock)} ${p.unit}", Fmt.money(p.avgCost),
+                                        Fmt.money(p.salePrice), margin?.let { "%.0f%%".format(it) }.orEmpty()),
+                                    onOpen?.let { { it(p) } },
+                                    subs = p.markup?.let { mapOf(5 to "auto +${qty(it)}%") }.orEmpty(),
+                                    warnCols = if (p.lowStock) setOf(3) else emptySet(),
+                                )
+                            },
+                            empty = "Nenhum produto encontrado. Cadastre o primeiro em Novo produto ou importe uma nota fiscal.",
+                        )
+                    }
+                }
             }
-            val line = listOfNotNull(p.sku?.let { "SKU $it" }, p.brand, p.category, p.location?.let { "Local: $it" }).joinToString(" · ")
-            if (line.isNotBlank()) Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (!p.isService) {
-                val qty = if (p.stock % 1.0 == 0.0) p.stock.toLong().toString() else "%.3f".format(p.stock)
-                Text("Estoque: $qty ${p.unit}" + if (p.lowStock) " · abaixo do mínimo" else "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (p.lowStock) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-            }
-            if (!p.active) Text("Inativo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
     }
 }

@@ -1,4 +1,24 @@
 package com.phdevtech.cicloserp.ui.order
+import com.phdevtech.cicloserp.ui.common.WebButton
+import com.phdevtech.cicloserp.ui.common.dashed
+import com.phdevtech.cicloserp.ui.theme.Web
+import com.phdevtech.cicloserp.ui.common.WebField
+import com.phdevtech.cicloserp.ui.common.PillButton
+import com.phdevtech.cicloserp.ui.common.IconTile
+import com.phdevtech.cicloserp.ui.common.TimeF
+import com.phdevtech.cicloserp.ui.common.DateF
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.alpha
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.IntrinsicSize
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -99,8 +119,104 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-/** Responder um questionário da OS (POST so_answers_save). Perguntas condicionais aparecem conforme as respostas. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** Selo de situação do questionário (.tk-qs): NÃO INICIADO, EM ANDAMENTO ou FINALIZADO. */
+@Composable
+private fun StateTag(state: String) {
+    val (bg, fg, label) = when (state) {
+        "fin" -> Triple(Web.okSoft, Web.ok, "FINALIZADO")
+        "and" -> Triple(Web.warnSoft, Web.warn, "EM ANDAMENTO")
+        else -> Triple(Web.surface2, Web.muted, "NÃO INICIADO")
+    }
+    Text("• $label", Modifier.clip(RoundedCornerShape(50)).background(bg).padding(horizontal = 8.dp, vertical = 2.dp), color = fg, fontSize = 10.6.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp)
+}
+
+/**
+ * Página Questionários (tkQuestionnaires): título, aviso de só consulta, filtros Todos/Pendentes/Em andamento/Finalizados com contagem
+ * e um cartão por questionário (nome, "N de 1 finalizado", equipamento, progresso e situação).
+ */
+@Composable
+fun QuestionnairesListScreen(me: Me, id: Int, onBack: () -> Unit, onOpen: (Int) -> Unit) {
+    val vm = appViewModel(key = "ql$id") { OrderViewModel(it, id) }
+    val state by vm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.load() }
+    var filter by rememberSaveable { mutableStateOf("todos") }
+    Scaffold(containerColor = Web.bg) { pad ->
+        when (val s = state) {
+            Load.Loading -> LoadingBox(Modifier.padding(pad))
+            is Load.Error -> ErrorBox(s.message, onRetry = vm::load, modifier = Modifier.padding(pad))
+            is Load.Ok -> {
+                val o = s.data
+                val info = o.questionnaires.map { q -> q to (if (q.filled == 0) "nao" else if (q.missing.isNotEmpty()) "and" else "fin") }
+                val counts = mapOf(
+                    "todos" to info.size, "pendentes" to info.count { it.second != "fin" },
+                    "andamento" to info.count { it.second == "and" }, "finalizados" to info.count { it.second == "fin" },
+                )
+                val shown = info.filter { (_, st) -> filter == "todos" || (if (filter == "pendentes") st != "fin" else if (filter == "andamento") st == "and" else st == "fin") }
+                Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(horizontal = 14.dp)) {
+                    Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Voltar", tint = Web.text) }
+                    }
+                    Text("Questionários", color = Web.text, fontSize = 20.25.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
+                    if (!canChange(me, o)) LockNote("Ordem concluída: só consulta. Para alterar, use o computador.")
+                    // filtros (.tk-chips.dark): o escolhido fica escuro
+                    Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("todos" to "Todos", "pendentes" to "Pendentes", "andamento" to "Em andamento", "finalizados" to "Finalizados").forEach { (k, l) ->
+                            val on = filter == k
+                            Row(
+                                Modifier.clip(RoundedCornerShape(50)).background(if (on) Web.text else Web.surface).border(1.dp, if (on) Web.text else Web.line, RoundedCornerShape(50))
+                                    .clickable { filter = k }.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(l, color = if (on) Web.surface else Web.text, fontSize = 12.5.sp, fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal)
+                                Text("${counts[k]}", Modifier.clip(RoundedCornerShape(50)).background(if (on) Web.surface else Web.surface2).padding(horizontal = 6.dp), color = Web.text, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (shown.isEmpty()) Text(
+                            if (o.questionnaires.isEmpty()) "Esta tarefa não tem questionários." else "Nenhum questionário neste filtro.",
+                            Modifier.fillMaxWidth().padding(vertical = 28.dp), color = Web.muted, fontSize = 15.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                        shown.forEach { (q, st) ->
+                            val pct = if (q.total > 0) q.filled * 100 / q.total else 0
+                            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Web.surface).border(1.dp, Web.line, RoundedCornerShape(14.dp)).clickable { onOpen(q.id) }) {
+                                Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    IconTile(Icons.Outlined.Description, Color(0xFF7C3AED), size = 34.dp)
+                                    Column(Modifier.weight(1f)) {
+                                        Text(q.name, color = Web.text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                        Text("${if (st == "fin") 1 else 0} de 1 finalizado", color = Web.muted, fontSize = 12.5.sp)
+                                    }
+                                    Icon(Icons.Outlined.ChevronRight, null, Modifier.size(16.dp), tint = Web.muted)
+                                }
+                                Box(Modifier.fillMaxWidth().height(1.dp).background(Web.line))
+                                Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Icon(Icons.Outlined.Settings, null, Modifier.size(16.dp), tint = Web.accent)
+                                        Text(o.equipmentName ?: "Sem equipamento na OS", color = Web.text, fontSize = 14.sp)
+                                    }
+                                    if (q.answered && q.answeredAt != null) Text(whenText(q.answeredAt), color = Web.text, fontSize = 12.8.sp)
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(50)).background(Web.line)) {
+                                            Box(Modifier.fillMaxWidth(pct / 100f).height(5.dp).clip(RoundedCornerShape(50)).background(Web.ok))
+                                        }
+                                        Text("$pct%", color = Web.text, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
+                                        StateTag(st)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(24.dp))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Responder um questionário da OS (POST so_answers_save): progresso, equipamento, abas Todas / Foco (uma pergunta por vez) / Sem resposta,
+ * e cartões com faixa lateral (vermelha obrigatória sem resposta, verde respondida). Perguntas condicionais aparecem conforme as respostas.
+ */
 @Composable
 fun QuestionnaireScreen(me: Me, id: Int, questionnaireId: Int, onBack: () -> Unit) {
     val vm = appViewModel(key = "q$id-$questionnaireId") { OrderViewModel(it, id) }
@@ -114,30 +230,29 @@ fun QuestionnaireScreen(me: Me, id: Int, questionnaireId: Int, onBack: () -> Uni
     val qn = o?.questionnaires?.firstOrNull { it.id == questionnaireId }
     // Respostas em edição (começam com as salvas no servidor)
     val answers = remember(qn?.id, o != null) { mutableStateMapOf<String, JsonElement>().apply { qn?.answers?.let { putAll(it) } } }
-    var onlyEmpty by rememberSaveable { mutableStateOf(false) }
+    var mode by rememberSaveable { mutableIntStateOf(0) }   // 0 Todas, 1 Foco, 2 Sem resposta
+    var idx by rememberSaveable { mutableIntStateOf(0) }
+
+    val save = {
+        if (qn != null) {
+            val vis = QuestionLogic.visibleMap(qn.questions, answers)
+            val toSend = answers.filterKeys { vis[it] == true }
+            vm.run(null, then = onBack) {
+                val missing = saveAnswers(id, qn.id, toSend)
+                vm.message(if (missing.isEmpty()) "Questionário salvo" else "Salvo. Falta responder ${missing.size} obrigatória(s)")
+            }
+        }
+    }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(qn?.name ?: "Questionário") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Voltar") } },
-            )
-        },
-        snackbarHost = { SnackbarHost(snack) },
+        containerColor = Web.bg, snackbarHost = { SnackbarHost(snack) },
         bottomBar = {
-            if (o != null && qn != null && canChange(me, o)) {
-                Button(
-                    enabled = !busy,
-                    onClick = {
-                        val vis = QuestionLogic.visibleMap(qn.questions, answers)
-                        val toSend = answers.filterKeys { vis[it] == true }
-                        vm.run(null, then = onBack) {
-                            val missing = saveAnswers(id, qn.id, toSend)
-                            vm.message(if (missing.isEmpty()) "Questionário salvo" else "Salvo. Ainda faltam: ${missing.joinToString(", ")}")
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(12.dp).height(52.dp),
-                ) { Text("Salvar respostas") }
+            if (o != null && qn != null && mode == 1) {
+                val vq = qn.questions.filter { QuestionLogic.visibleMap(qn.questions, answers)[it.id] == true }
+                Row(Modifier.fillMaxWidth().background(Web.bg).navigationBarsPadding().padding(horizontal = 14.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PillButton("‹ Anterior", { if (idx > 0) idx-- }, Modifier.weight(1f), enabled = idx > 0)
+                    PillButton(if (idx >= vq.size - 1) "Concluir" else "Próxima ›", { if (idx >= vq.size - 1) { if (canChange(me, o)) save() else onBack() } else idx++ }, Modifier.weight(1f), filled = true)
+                }
             }
         },
     ) { pad ->
@@ -148,97 +263,130 @@ fun QuestionnaireScreen(me: Me, id: Int, questionnaireId: Int, onBack: () -> Uni
             else -> {
                 val editable = canChange(me, o)
                 val vis = QuestionLogic.visibleMap(qn.questions, answers)
+                val vq = qn.questions.filter { vis[it.id] == true }
                 val (filled, total) = QuestionLogic.progress(qn.questions, answers)
-                Column(Modifier.fillMaxSize().padding(pad).imePadding()) {
-                    if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("$filled de $total respondidas", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                        FilterChip(selected = onlyEmpty, onClick = { onlyEmpty = !onlyEmpty }, label = { Text("Sem resposta") })
+                Column(Modifier.fillMaxSize().padding(pad).imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 14.dp)) {
+                    Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Voltar", tint = Web.text) }
+                        Spacer(Modifier.weight(1f))
+                        if (editable) TextButton(onClick = { save() }, enabled = !busy) { Text("Salvar", color = Web.accent, fontSize = 16.sp, fontWeight = FontWeight(650)) }
                     }
-                    Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        var n = 0
-                        qn.questions.forEach { q ->
-                            if (vis[q.id] != true) return@forEach
-                            n++
-                            if (onlyEmpty && QuestionLogic.filled(q, answers[q.id])) return@forEach
-                            QuestionCard(n, q, answers[q.id], editable) { v -> if (v == null) answers.remove(q.id) else answers[q.id] = v }
+                    Text(qn.name, color = Web.text, fontSize = 20.25.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp))
+                    if (!editable) LockNote("Ordem concluída: só consulta. Para alterar, use o computador.")
+                    Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(50)).background(Web.line)) {
+                            Box(Modifier.fillMaxWidth(if (total > 0) filled / total.toFloat() else 0f).height(5.dp).clip(RoundedCornerShape(50)).background(Web.accent))
                         }
-                        Spacer(Modifier.height(24.dp))
+                        Text("$filled de $total", color = Web.muted, fontSize = 12.8.sp)
                     }
+                    o.equipment?.let { eq ->
+                        Row(Modifier.fillMaxWidth().padding(vertical = 10.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Icon(Icons.Outlined.Settings, null, Modifier.size(20.dp), tint = Web.text)
+                            Text(eq, color = Web.text, fontSize = 15.sp)
+                        }
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(Web.line))
+                    }
+                    Tabs(listOf("Todas", "Foco", "Sem resposta"), mode) { mode = it; if (it == 1) idx = 0 }
+                    Spacer(Modifier.height(12.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        fun num(q: Question) = qn.questions.indexOf(q) + 1
+                        val set: (Question) -> (JsonElement?) -> Unit = { q -> { v -> if (v == null) answers.remove(q.id) else answers[q.id] = v } }
+                        when (mode) {
+                            0 -> vq.forEach { q -> QuestionCard(num(q), q, answers[q.id], editable, set(q)) }
+                            2 -> {
+                                val list = vq.filter { !QuestionLogic.filled(it, answers[it.id]) }
+                                if (list.isEmpty()) Text("Todas as perguntas foram respondidas.", Modifier.fillMaxWidth().padding(vertical = 28.dp), color = Web.muted, fontSize = 15.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                list.forEach { q -> QuestionCard(num(q), q, answers[q.id], editable, set(q)) }
+                            }
+                            else -> {
+                                val i = idx.coerceIn(0, (vq.size - 1).coerceAtLeast(0))
+                                val q = vq.getOrNull(i)
+                                if (q == null) Text("Nenhuma pergunta.", Modifier.fillMaxWidth().padding(vertical = 28.dp), color = Web.muted, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                else {
+                                    Text("PERGUNTA ${i + 1} DE ${vq.size}", color = Web.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                                    Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(Web.line)) {
+                                        Box(Modifier.fillMaxWidth((i + 1) / vq.size.toFloat()).height(4.dp).clip(RoundedCornerShape(50)).background(Web.accent))
+                                    }
+                                    QuestionCard(num(q), q, answers[q.id], editable, set(q))
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(24.dp))
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Opção de resposta (.tk-opt): linha com borda, destaque vermelho claro quando escolhida; redonda (uma) ou quadrada (várias). */
+@Composable
+private fun OptionRow(text: String, selected: Boolean, square: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Row(
+        Modifier.fillMaxWidth().clip(shape).background(if (selected) Web.accentSoft else Web.surface).border(1.dp, if (selected) Web.accent else Web.line, shape)
+            .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 12.dp, vertical = 11.dp).alpha(if (enabled) 1f else .7f),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (square) Checkbox(selected, null, enabled = enabled, modifier = Modifier.size(18.dp), colors = CheckboxDefaults.colors(checkedColor = Web.accent, checkmarkColor = Web.accentInk, uncheckedColor = Web.muted))
+        else RadioButton(selected, null, enabled = enabled, modifier = Modifier.size(18.dp), colors = RadioButtonDefaults.colors(selectedColor = Web.accent, unselectedColor = Web.muted))
+        Text(text, color = Web.text, fontSize = 14.4.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** Cartão de pergunta (.tk-qq): faixa lateral de 4dp (vermelha: obrigatória sem resposta; verde: respondida), número e texto em negrito. */
 @Composable
 private fun QuestionCard(n: Int, q: Question, value: JsonElement?, editable: Boolean, onChange: (JsonElement?) -> Unit) {
     val text = value.asStr().orEmpty()
     val setText: (String) -> Unit = { onChange(if (it.isEmpty()) null else JsonPrimitive(it)) }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                "$n. ${q.label}" + if (q.required) " *" else "",
-                style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
-            )
-            q.description?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+    val filledNow = QuestionLogic.filled(q, value)
+    val stripe = if (q.required && !filledNow) Color(0xFFDC2626) else if (filledNow) Web.ok else Web.line
+    val shape = RoundedCornerShape(12.dp)
+    Row(Modifier.fillMaxWidth().clip(shape).background(Web.surface).border(1.dp, Web.line, shape).height(IntrinsicSize.Min)) {
+        Box(Modifier.width(4.dp).fillMaxHeight().background(stripe))
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("$n. ${q.label}" + if (q.required) "*" else "", color = Web.text, fontSize = 14.2.sp, fontWeight = FontWeight.Bold)
+            q.description?.let { Text(it, color = Web.muted, fontSize = 12.8.sp, modifier = Modifier.padding(top = (-4).dp)) }
             when (q.type) {
-                "check" -> Row(Modifier.clickable(enabled = editable) { setText(if (text == "Sim") "" else "Sim") }, verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = text == "Sim", onCheckedChange = { setText(if (it) "Sim" else "") }, enabled = editable)
-                    Text(if (text == "Sim") "Sim" else "Não marcado")
-                }
-                "itens" -> q.options.forEach { opt ->
-                    Row(Modifier.fillMaxWidth().clickable(enabled = editable) { setText(if (text == opt) "" else opt) }, verticalAlignment = Alignment.CenterVertically) {
-                        RadioButton(selected = text == opt, onClick = { setText(if (text == opt) "" else opt) }, enabled = editable)
-                        Text(opt)
-                    }
-                }
+                "check" -> OptionRow("Sim", text == "Sim", true, editable) { setText(if (text == "Sim") "" else "Sim") }
+                "itens" -> q.options.forEach { opt -> OptionRow(opt, text == opt, false, editable) { setText(if (text == opt) "" else opt) } }
                 "multipla" -> {
                     val sel = QuestionLogic.asList(value)
                     q.options.forEach { opt ->
                         val on = opt in sel
-                        val toggle = {
+                        OptionRow(opt, on, true, editable) {
                             val next = if (on) sel - opt else q.options.filter { it in sel || it == opt }
                             onChange(if (next.isEmpty()) null else JsonArray(next.map(::JsonPrimitive)))
                         }
-                        Row(Modifier.fillMaxWidth().clickable(enabled = editable, onClick = toggle), verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = on, onCheckedChange = { toggle() }, enabled = editable)
-                            Text(opt)
-                        }
                     }
                 }
-                "data" -> DateField(text, editable, setText)
-                "hora" -> TimeField(text, editable, setText)
+                "data" -> DateF(null, text, setText, enabled = editable)
+                "hora" -> TimeF(null, text, setText, enabled = editable)
                 "assinatura" -> SignatureAnswer(text, editable, setText)
                 "foto" -> PhotoAnswer(value, editable, onChange)
                 else -> {
-                    val (kb, multi) = when (q.type) {
-                        "numerica", "monetaria" -> KeyboardType.Decimal to false
-                        "documento" -> KeyboardType.Number to false
-                        "area" -> KeyboardType.Text to true
-                        else -> KeyboardType.Text to false
+                    val (kb, lines) = when (q.type) {
+                        "numerica", "monetaria" -> KeyboardType.Decimal to 1
+                        "documento" -> KeyboardType.Number to 1
+                        "area" -> KeyboardType.Text to 4
+                        else -> KeyboardType.Text to 1
                     }
-                    OutlinedTextField(
-                        value = if (q.type == "documento") Fmt.doc(text) else text,
-                        onValueChange = { v ->
+                    WebField(
+                        if (q.type == "documento") Fmt.doc(text) else text,
+                        { v ->
                             setText(when (q.type) {
                                 "documento" -> v.filter(Char::isDigit).take(14)
                                 "numerica", "monetaria" -> v.filter { it.isDigit() || it == ',' || it == '.' || it == '-' }.take(20)
                                 else -> v.take(if (q.type == "area") 5000 else 1000)
                             })
                         },
-                        enabled = editable, singleLine = !multi,
-                        prefix = if (q.type == "monetaria") ({ Text("R$ ") }) else null,
-                        keyboardOptions = KeyboardOptions(keyboardType = kb),
-                        modifier = Modifier.fillMaxWidth().then(if (multi) Modifier.heightIn(min = 110.dp) else Modifier),
+                        Modifier.fillMaxWidth(), placeholder = if (q.type == "monetaria") "R$ 0,00" else "Resposta", keyboardType = kb, minLines = lines, enabled = editable,
                     )
                 }
             }
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DateField(value: String, editable: Boolean, onChange: (String) -> Unit) {
@@ -287,23 +435,25 @@ private fun TimeField(value: String, editable: Boolean, onChange: (String) -> Un
 
 @Composable
 private fun SignatureAnswer(value: String, editable: Boolean, onChange: (String) -> Unit) {
-    var drawing by remember { mutableStateOf(value.isEmpty()) }
+    var dialog by remember { mutableStateOf(false) }
     val pad = rememberSignatureState()
-    if (value.isNotEmpty() && !drawing) {
-        Images.decodeDataUrl(value)?.let { Image(it, "Assinatura", Modifier.fillMaxWidth().height(150.dp).background(Color.White), contentScale = ContentScale.Fit) }
-        if (editable) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { drawing = true }) { Text("Assinar de novo") }
-            TextButton(onClick = { onChange(""); drawing = true }) { Text("Remover") }
-        }
-    } else if (editable) {
-        SignaturePad(pad)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = pad::clear) { Text("Limpar") }
-            Button(onClick = { pad.toDataUrl()?.let { onChange(it); drawing = false } }) { Text("Usar assinatura") }
-        }
-    } else Text("Sem assinatura", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    // quadro pequeno e tracejado (.tk-sigbox.sm): toque para assinar
+    Box(
+        Modifier.fillMaxWidth().height(90.dp).clip(RoundedCornerShape(12.dp)).background(Web.surface2).dashed(Web.line, 12.dp).clickable(enabled = editable) { pad.clear(); dialog = true },
+        contentAlignment = Alignment.Center,
+    ) {
+        val img = remember(value.length) { Images.decodeDataUrl(value.ifEmpty { null }) }
+        if (img != null) Image(img, "Assinatura", Modifier.fillMaxSize().padding(4.dp).background(Color.White, RoundedCornerShape(8.dp)), contentScale = ContentScale.Fit)
+        else Text("Toque para assinar", color = Web.muted, fontSize = 14.sp)
+    }
+    if (value.isNotEmpty() && editable) Text("Remover assinatura", Modifier.clickable { onChange("") }, color = Web.accent, fontSize = 13.6.sp)
+    if (dialog) AlertDialog(
+        onDismissRequest = { dialog = false }, containerColor = Web.surface, title = { Text("Assinatura") },
+        text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { SignaturePad(pad); WebButton("Limpar", pad::clear) } },
+        confirmButton = { TextButton({ if (!pad.isEmpty) pad.toDataUrl()?.let(onChange); dialog = false }) { Text("Salvar", color = Web.accent) } },
+        dismissButton = { TextButton({ dialog = false }) { Text("Cancelar", color = Web.accent) } },
+    )
 }
-
 /** Foto como resposta: lista de {src, at} (até 10 por pergunta). */
 @Composable
 private fun PhotoAnswer(value: JsonElement?, editable: Boolean, onChange: (JsonElement?) -> Unit) {

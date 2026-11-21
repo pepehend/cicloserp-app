@@ -150,6 +150,23 @@ class CiclosRepository(private val api: ApiClient, private val store: SessionSto
         api.post("so_photo_add", buildJsonObject { put("id", id); put("image", dataUrl); put("caption", caption) })
     }
 
+    /** Lança peça ou serviço na OS (POST so_item_save): do cadastro ([productId]) ou item novo ([newItem], vai para revisão). */
+    suspend fun saveItem(id: Int, kind: String, productId: Int?, description: String, newItem: Boolean, quantity: String, unitPrice: String) {
+        api.post("so_item_save", buildJsonObject {
+            put("id", id); put("kind", kind); put("product_id", productId?.toString() ?: ""); put("description", description)
+            put("new_item", if (newItem) 1 else 0); put("quantity", quantity); put("unit_price", unitPrice)
+        })
+    }
+
+    suspend fun deleteItem(itemId: Int) {
+        api.post("so_item_delete", buildJsonObject { put("item_id", itemId) })
+    }
+
+    /** Envia a OS digital por e-mail pelo servidor (POST so_send). */
+    suspend fun sendOrder(id: Int, email: String) {
+        api.post("so_send", buildJsonObject { put("id", id); put("kind", "os"); put("to", email.trim()) })
+    }
+
     suspend fun deletePhoto(photoId: Int) {
         api.post("so_photo_delete", buildJsonObject { put("photo_id", photoId) })
     }
@@ -188,6 +205,62 @@ class CiclosRepository(private val api: ApiClient, private val store: SessionSto
     suspend fun quote(id: Int): QuoteDetail =
         QuoteDetail.from(api.get("quote", mapOf("id" to id)).asObj() ?: throw ApiException(0, "Orçamento não encontrado"))
 
+
+    // ---------------- Gravação dos cadastros (mesmas rotas e permissões do sistema web) ----------------
+
+    /** GET de um registro inteiro (customer, product…), com todos os campos para preencher o formulário. */
+    suspend fun raw(route: String, id: Int): JsonObject =
+        api.get(route, mapOf("id" to id)).asObj() ?: throw ApiException(0, "Registro não encontrado")
+
+    /** POST *_save: devolve o id gravado. Erros de validação voltam como ApiException (mensagem em português). */
+    suspend fun save(route: String, body: JsonObject): Int? = api.post(route, body).asObj()?.int("id")
+
+    /** POST *_delete: "excluido", "apagado" ou o que o servidor devolver (cadastro usado só é desativado). */
+    suspend fun delete(route: String, id: Int): String? =
+        api.post(route, buildJsonObject { put("id", id) }).asObj()?.text("result")
+
+    /** Dados do cadastro pelo CNPJ (Receita Federal). */
+    suspend fun cnpj(digits: String): JsonObject? = api.get("cnpj", mapOf("cnpj" to digits)).asObj()
+
+    /** Endereço pelo CEP (street, district, city, state). */
+    suspend fun cep(digits: String): JsonObject? = api.get("cep", mapOf("cep" to digits)).asObj()
+
+    /** Listas do formulário de OS: equipamentos e orçamentos do cliente, técnicos e tipos de tarefa. */
+    suspend fun orderForm(customerId: Int): JsonObject =
+        api.get("service_order_form", mapOf("customer_id" to customerId)).asObj() ?: JsonObject(emptyMap())
+
+    suspend fun equipmentRaw(id: Int): JsonObject =
+        api.get("equipments", mapOf("all" to 1)).let { it.asObj()?.arr("rows") ?: it.asArr() }
+            .mapNotNull { it.asObj() }.firstOrNull { it.int("id") == id } ?: throw ApiException(0, "Equipamento não encontrado")
+
+    /** Listas do sistema (GET meta): marcas, categorias, unidades, tributação… */
+    suspend fun meta(): JsonObject = api.get("meta").asObj() ?: JsonObject(emptyMap())
+
+    /** Lançamento manual de estoque (POST movement): kind = entrada | saida | perda. */
+    suspend fun movement(productId: Int, kind: String, quantity: String, unitCost: String?, note: String?) {
+        api.post("movement", buildJsonObject {
+            put("product_id", productId); put("kind", kind); put("quantity", quantity.replace(',', '.'))
+            if (!unitCost.isNullOrBlank()) put("unit_cost", unitCost.replace(',', '.'))
+            if (!note.isNullOrBlank()) put("note", note)
+        })
+    }
+
+    /** Usuários ativos (GET team), para o filtro Responsável. */
+    suspend fun team(): List<Pair<String, String>> =
+        api.get("team").asArr().mapNotNull { it.asObj() }.map { (it.str("id") ?: "") to (it.str("name") ?: "") }
+
+    /** POST quotes_bulk: action = status | enviado | aprovado | recusado | delete. Devolve (feitos, mensagens de erro). */
+    suspend fun quotesBulk(ids: List<Int>, action: String, status: String? = null): Pair<Int, List<String>> {
+        val r = api.post("quotes_bulk", buildJsonObject {
+            put("ids", kotlinx.serialization.json.JsonArray(ids.map { kotlinx.serialization.json.JsonPrimitive(it) })); put("action", action)
+            if (status != null) put("status", status)
+        }).asObj()
+        return (r?.int("ok") ?: 0) to r?.arr("errors").orEmpty().mapNotNull { it.asObj()?.text("error") }
+    }
+
+    suspend fun setQuoteStatus(id: Int, status: String) {
+        api.post("quote_status", buildJsonObject { put("id", id); put("status", status) })
+    }
     private fun deviceName(): String {
         val m = Build.MODEL.orEmpty()
         val brand = Build.MANUFACTURER.orEmpty().replaceFirstChar { it.uppercase() }

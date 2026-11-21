@@ -146,6 +146,7 @@ data class Questionnaire(
     val answered: Boolean,
     val answers: JsonObject,
     val missing: List<String>,
+    val answeredAt: String? = null,
 ) {
     companion object {
         fun from(o: JsonObject) = Questionnaire(
@@ -158,6 +159,7 @@ data class Questionnaire(
             answered = o.bool("answered"),
             answers = o.obj("answers") ?: JsonObject(emptyMap()),
             missing = o.strList("missing"),
+            answeredAt = o.text("answered_at"),
         )
     }
 }
@@ -174,6 +176,9 @@ data class OrderItem(
     val review: Boolean,
 )
 
+/** Orçamento ligado à OS (página Orçamentos): número, relação (aberto pela OS…), situação e total. */
+data class OrderQuote(val id: Int, val relation: String?, val statusLabel: String?, val total: Double)
+
 data class HourRow(val label: String, val at: String, val userName: String?, val reason: String?)
 
 /** Ficha completa da OS (OrderExec::detail). */
@@ -188,6 +193,7 @@ data class OrderDetail(
     val dueDate: String?,
     val startedAt: String?,
     val finishedAt: String?,
+    val customerId: Int? = null,
     val customerName: String,
     val customerPhone: String?,
     val customerEmail: String?,
@@ -212,6 +218,9 @@ data class OrderDetail(
     val hoursPause: Long,
     val pending: List<String>,
     val itemKinds: Map<String, String>,
+    val equipmentName: String? = null,
+    val taskTypeDuration: Int? = null,
+    val quotes: List<OrderQuote> = emptyList(),
 ) {
     val isDone get() = status == OrderStatus.CONCLUIDA
 
@@ -224,11 +233,7 @@ data class OrderDetail(
                 o.text("customer_district"),
                 listOfNotNull(o.text("customer_city"), o.text("customer_state")).joinToString(" - ").ifBlank { null },
             ).joinToString(" · ").ifBlank { null }
-            val equipment = listOfNotNull(
-                o.text("equipment_name"),
-                listOfNotNull(o.text("equipment_brand"), o.text("equipment_model")).joinToString(" ").ifBlank { null },
-                o.text("equipment_serial")?.let { "Série $it" },
-            ).joinToString(" · ").ifBlank { null }
+            val equipment = listOfNotNull(o.text("equipment_name"), o.text("equipment_serial")).joinToString(" · ").ifBlank { null }
             val items = root.obj("items")
             val hours = root.obj("hours")
             return OrderDetail(
@@ -242,11 +247,15 @@ data class OrderDetail(
                 dueDate = o.text("due_date"),
                 startedAt = o.text("started_at"),
                 finishedAt = o.text("finished_at"),
+                customerId = o.int("customer_id"),
                 customerName = o.text("customer_trade_name") ?: o.str("customer_name").orEmpty(),
                 customerPhone = o.text("customer_phone"),
                 customerEmail = o.text("customer_email"),
                 customerAddress = address,
                 equipment = equipment,
+                equipmentName = o.text("equipment_name"),
+                taskTypeDuration = o.int("task_type_duration"),
+                quotes = root.arr("quotes").mapNotNull { e -> e.asObj()?.let { OrderQuote(it.int("id") ?: 0, it.text("relation"), it.text("status_label"), it.dbl("total") ?: 0.0) } },
                 technicianName = o.text("technician_name"),
                 taskTypeName = o.text("task_type_name"),
                 report = o.text("report"),
