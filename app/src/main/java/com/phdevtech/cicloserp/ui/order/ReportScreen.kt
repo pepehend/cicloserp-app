@@ -220,7 +220,7 @@ fun ReportScreen(me: Me, id: Int, onBack: () -> Unit, page: String = "relato") {
     }
 }
 
-/** Controle de Horas: totais de deslocamento, pausa e trabalho, lista de atividades com ícone e, em andamento, os botões Pausar/Retomar atendimento. */
+/** Controle de horas: totais de deslocamento, pausa e trabalho, lista de atividades com ícone e, em andamento, os botões Pausar/Retomar atendimento. */
 @Composable
 fun PausesScreen(id: Int, onBack: () -> Unit) {
     val vm = appViewModel(key = "pau$id") { OrderViewModel(it, id) }
@@ -235,7 +235,7 @@ fun PausesScreen(id: Int, onBack: () -> Unit) {
         is Load.Error -> ErrorBox(s.message, onRetry = vm::load)
         is Load.Ok -> {
             val o = s.data
-            TkPage("Controle de Horas", onBack, null, snack, locked = o.isDone) {
+            TkPage("Controle de horas", onBack, null, snack, locked = o.isDone) {
                 WebCard(padding = 14.dp) {
                     Row(Modifier.fillMaxWidth()) {
                         listOf("Deslocamento" to o.hoursTravel, "Pausa" to o.hoursPause, "Trabalho" to o.hoursWork).forEach { (l, v) ->
