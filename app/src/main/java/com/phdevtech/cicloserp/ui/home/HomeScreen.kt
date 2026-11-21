@@ -13,6 +13,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
@@ -67,7 +68,10 @@ class HomeViewModel(private val repo: CiclosRepository) : ViewModel() {
 
 /** Início do app do técnico: OS de hoje, atrasadas e em execução (GET tech_home). */
 @Composable
-fun HomeScreen(me: Me, onOpenOrder: (Int) -> Unit, contentPadding: PaddingValues) {
+fun HomeScreen(
+    me: Me, onOpenOrder: (Int) -> Unit, contentPadding: PaddingValues,
+    onNavigate: (String) -> Unit = {}, can: (String) -> Boolean = { true },
+) {
     val vm = appViewModel { HomeViewModel(it) }
     val state by vm.state.collectAsStateWithLifecycle()
     val team by vm.team.collectAsStateWithLifecycle()
@@ -86,6 +90,19 @@ fun HomeScreen(me: Me, onOpenOrder: (Int) -> Unit, contentPadding: PaddingValues
                         val hello = if (hour < 12) "Bom dia" else if (hour < 18) "Boa tarde" else "Boa noite"
                         Text("$hello, ${me.name.substringBefore(' ')}!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
                         Text(Fmt.weekday(LocalDate.now()), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    item {
+                        // Atalhos do app do técnico: Agenda (nova tarefa), Clientes, Orçamento e Produto
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(
+                                Triple("Agenda", "agenda", "ordens"), Triple("Clientes", "clientes", "clientes"),
+                                Triple("Orçamento", "orcamentos", "orcamentos"), Triple("Produto", "produtos", "produtos"),
+                            ).filter { can(it.third) }.forEach { (label, route, _) ->
+                                OutlinedButton(onClick = { onNavigate(route) }, Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp)) {
+                                    Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+                                }
+                            }
+                        }
                     }
                     if (me.can("ordens.all")) item {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

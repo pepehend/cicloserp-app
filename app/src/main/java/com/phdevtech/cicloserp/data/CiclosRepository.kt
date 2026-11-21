@@ -3,7 +3,13 @@ package com.phdevtech.cicloserp.data
 import android.os.Build
 import com.phdevtech.cicloserp.data.api.ApiClient
 import com.phdevtech.cicloserp.data.api.ApiException
+import com.phdevtech.cicloserp.data.model.Customer
+import com.phdevtech.cicloserp.data.model.CustomerDetail
+import com.phdevtech.cicloserp.data.model.Equipment
 import com.phdevtech.cicloserp.data.model.Me
+import com.phdevtech.cicloserp.data.model.Product
+import com.phdevtech.cicloserp.data.model.QuoteDetail
+import com.phdevtech.cicloserp.data.model.QuotesPage
 import com.phdevtech.cicloserp.data.model.OrderDetail
 import com.phdevtech.cicloserp.data.model.OrderSummary
 import com.phdevtech.cicloserp.data.model.TechHome
@@ -147,6 +153,40 @@ class CiclosRepository(private val api: ApiClient, private val store: SessionSto
     suspend fun deletePhoto(photoId: Int) {
         api.post("so_photo_delete", buildJsonObject { put("photo_id", photoId) })
     }
+
+
+    // ---------------- Cadastros e orçamentos (mesmas tabelas do sistema web) ----------------
+
+    /** GET customers (tabela customers). [inactive] = incluir inativos. */
+    suspend fun customers(q: String?, inactive: Boolean): List<Customer> =
+        api.get("customers", mapOf("q" to q?.takeIf { it.isNotBlank() }, "active" to if (inactive) "all" else null, "limit" to 200))
+            .asObj()?.arr("rows").orEmpty().mapNotNull { it.asObj()?.let(Customer::from) }
+
+    /** GET customer: ficha com totais, o que mais compra e portal; junta os equipamentos (GET equipments). */
+    suspend fun customer(id: Int): CustomerDetail {
+        val base = CustomerDetail.from(api.get("customer", mapOf("id" to id)).asObj() ?: throw ApiException(0, "Cliente não encontrado"))
+        val eq = runCatching { equipments(null, id) }.getOrDefault(emptyList())
+        return base.copy(equipments = eq)
+    }
+
+    /** GET products: type = "produto" ou "servico" (tabela products). */
+    suspend fun products(type: String, q: String?, inactive: Boolean, lowOnly: Boolean): List<Product> =
+        api.get("products", mapOf("type" to type, "q" to q?.takeIf { it.isNotBlank() },
+            "active" to if (inactive) "all" else null, "low" to if (lowOnly) 1 else null))
+            .asArr().mapNotNull { it.asObj()?.let(Product::from) }
+
+    /** GET equipments (tabela equipments), opcionalmente de um cliente. */
+    suspend fun equipments(q: String?, customerId: Int? = null): List<Equipment> =
+        api.get("equipments", mapOf("q" to q?.takeIf { it.isNotBlank() }, "customer_id" to customerId))
+            .let { it.asObj()?.arr("rows") ?: it.asArr() }.mapNotNull { it.asObj()?.let(Equipment::from) }
+
+    /** GET quotes (tabela quotes) com os indicadores do mês. [shortcut] = expiring, pending ou month=…. */
+    suspend fun quotes(q: String?, status: String?): QuotesPage =
+        QuotesPage.from(api.get("quotes", mapOf("q" to q?.takeIf { it.isNotBlank() }, "status" to status?.takeIf { it.isNotBlank() }, "hide_old" to 1))
+            .asObj() ?: JsonObject(emptyMap()))
+
+    suspend fun quote(id: Int): QuoteDetail =
+        QuoteDetail.from(api.get("quote", mapOf("id" to id)).asObj() ?: throw ApiException(0, "Orçamento não encontrado"))
 
     private fun deviceName(): String {
         val m = Build.MODEL.orEmpty()

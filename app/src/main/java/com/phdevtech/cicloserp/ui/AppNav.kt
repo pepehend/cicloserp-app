@@ -1,38 +1,49 @@
 package com.phdevtech.cicloserp.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Card
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Button
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -41,21 +52,35 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.phdevtech.cicloserp.data.AuthState
 import com.phdevtech.cicloserp.data.model.Me
+import com.phdevtech.cicloserp.ui.account.AccountScreen
 import com.phdevtech.cicloserp.ui.agenda.AgendaScreen
 import com.phdevtech.cicloserp.ui.common.repository
+import com.phdevtech.cicloserp.ui.customers.CustomerScreen
+import com.phdevtech.cicloserp.ui.customers.CustomersScreen
+import com.phdevtech.cicloserp.ui.equipments.EquipmentsScreen
 import com.phdevtech.cicloserp.ui.home.HomeScreen
 import com.phdevtech.cicloserp.ui.order.OrderScreen
 import com.phdevtech.cicloserp.ui.order.PhotosScreen
 import com.phdevtech.cicloserp.ui.order.QuestionnaireScreen
 import com.phdevtech.cicloserp.ui.order.ReportScreen
 import com.phdevtech.cicloserp.ui.orders.OrdersScreen
+import com.phdevtech.cicloserp.ui.products.ProductsScreen
+import com.phdevtech.cicloserp.ui.quotes.QuoteScreen
+import com.phdevtech.cicloserp.ui.quotes.QuotesScreen
 import kotlinx.coroutines.launch
 
-private object Route {
+object Route {
     const val HOME = "home"
     const val AGENDA = "agenda"
     const val ORDERS = "ordens"
+    const val CUSTOMERS = "clientes"
+    const val QUOTES = "orcamentos"
+    const val PRODUCTS = "produtos"
+    const val SERVICES = "servicos"
+    const val EQUIPMENTS = "equipamentos"
     const val ACCOUNT = "conta"
+    const val CUSTOMER = "cliente/{id}"
+    const val QUOTE = "orcamento/{id}"
     const val ORDER = "os/{id}"
     const val QUESTIONNAIRE = "os/{id}/questionario/{qid}"
     const val REPORT = "os/{id}/relatorio"
@@ -63,25 +88,52 @@ private object Route {
     fun order(id: Int) = "os/$id"
 }
 
-private data class Tab(val route: String, val label: String, val icon: ImageVector)
+/** Item do menu lateral (igual ao app do técnico do sistema web). [perm] = permissão para aparecer. */
+private data class Entry(val route: String, val label: String, val icon: ImageVector, val perm: String?)
 
-private val TABS = listOf(
-    Tab(Route.HOME, "Início", Icons.Outlined.Home),
-    Tab(Route.AGENDA, "Agenda", Icons.Outlined.CalendarMonth),
-    Tab(Route.ORDERS, "Ordens", Icons.AutoMirrored.Outlined.Assignment),
-    Tab(Route.ACCOUNT, "Conta", Icons.Outlined.Person),
+private val MENU = listOf(
+    Entry(Route.HOME, "Início", Icons.Outlined.Home, null),
+    Entry(Route.AGENDA, "Agenda", Icons.Outlined.CalendarMonth, "ordens"),
+    Entry(Route.ORDERS, "Ordens de serviço", Icons.AutoMirrored.Outlined.Assignment, "ordens"),
+    Entry(Route.CUSTOMERS, "Clientes", Icons.Outlined.Group, "clientes"),
+    Entry(Route.QUOTES, "Orçamentos", Icons.Outlined.Description, "orcamentos"),
+    Entry(Route.PRODUCTS, "Produtos", Icons.Outlined.Inventory2, "produtos"),
+    Entry(Route.SERVICES, "Serviços", Icons.Outlined.Build, "servicos"),
+    Entry(Route.EQUIPMENTS, "Equipamentos", Icons.Outlined.Settings, "equipamentos"),
+    Entry(Route.ACCOUNT, "Minha conta", Icons.Outlined.Person, null),
 )
 
-/** Navegação do app logado: abas (Início, Agenda, Ordens, Conta) e a ficha da OS com suas telas. */
+/** App logado: menu lateral com os módulos (conforme as permissões) e as telas de detalhe. */
 @Composable
 fun LoggedInApp(state: AuthState.LoggedIn) {
     val nav = rememberNavController()
     val me = state.me
+    val entries = MENU.filter { it.perm == null || me.can(it.perm) }
+    val go: (String) -> Unit = { route ->
+        nav.navigate(route) {
+            popUpTo(Route.HOME) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+    val openOrder: (Int) -> Unit = { nav.navigate(Route.order(it)) }
+
     NavHost(nav, startDestination = Route.HOME) {
-        composable(Route.HOME) { Tabs(nav, Route.HOME) { pad -> HomeScreen(me, { nav.navigate(Route.order(it)) }, pad) } }
-        composable(Route.AGENDA) { Tabs(nav, Route.AGENDA) { pad -> AgendaScreen(me, { nav.navigate(Route.order(it)) }, pad) } }
-        composable(Route.ORDERS) { Tabs(nav, Route.ORDERS) { pad -> OrdersScreen({ nav.navigate(Route.order(it)) }, pad) } }
-        composable(Route.ACCOUNT) { Tabs(nav, Route.ACCOUNT) { pad -> AccountScreen(state, pad) } }
+        composable(Route.HOME) { Shell(nav, me, entries, Route.HOME, go) { pad -> HomeScreen(me, openOrder, pad, onNavigate = go, can = { me.can(it) }) } }
+        composable(Route.AGENDA) { Shell(nav, me, entries, Route.AGENDA, go) { pad -> AgendaScreen(me, openOrder, pad) } }
+        composable(Route.ORDERS) { Shell(nav, me, entries, Route.ORDERS, go) { pad -> OrdersScreen(openOrder, pad) } }
+        composable(Route.CUSTOMERS) { Shell(nav, me, entries, Route.CUSTOMERS, go) { pad -> CustomersScreen({ nav.navigate("cliente/$it") }, pad) } }
+        composable(Route.QUOTES) { Shell(nav, me, entries, Route.QUOTES, go) { pad -> QuotesScreen({ nav.navigate("orcamento/$it") }, pad) } }
+        composable(Route.PRODUCTS) { Shell(nav, me, entries, Route.PRODUCTS, go) { pad -> ProductsScreen(service = false, pad = pad) } }
+        composable(Route.SERVICES) { Shell(nav, me, entries, Route.SERVICES, go) { pad -> ProductsScreen(service = true, pad = pad) } }
+        composable(Route.EQUIPMENTS) { Shell(nav, me, entries, Route.EQUIPMENTS, go) { pad -> EquipmentsScreen(pad) } }
+        composable(Route.ACCOUNT) { Shell(nav, me, entries, Route.ACCOUNT, go) { pad -> AccountScreen(state, pad) } }
+        composable(Route.CUSTOMER, listOf(navArgument("id") { type = NavType.IntType })) { e ->
+            CustomerScreen(e.arguments!!.getInt("id"), onBack = { nav.popBackStack() })
+        }
+        composable(Route.QUOTE, listOf(navArgument("id") { type = NavType.IntType })) { e ->
+            QuoteScreen(e.arguments!!.getInt("id"), onBack = { nav.popBackStack() })
+        }
         composable(Route.ORDER, listOf(navArgument("id") { type = NavType.IntType })) { e ->
             val id = e.arguments!!.getInt("id")
             OrderScreen(
@@ -103,58 +155,59 @@ fun LoggedInApp(state: AuthState.LoggedIn) {
     }
 }
 
+/** Tela de nível superior: barra com o botão do menu e a gaveta de navegação. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Tabs(nav: NavHostController, current: String, content: @Composable (PaddingValues) -> Unit) {
-    Scaffold(
-        topBar = { TopAppBar(title = { Text(TABS.first { it.route == current }.label) }) },
-        bottomBar = {
-            NavigationBar {
-                val route = nav.currentBackStackEntryAsState().value?.destination?.route
-                TABS.forEach { t ->
-                    NavigationBarItem(
-                        selected = route == t.route,
-                        onClick = {
-                            if (route != t.route) nav.navigate(t.route) {
-                                popUpTo(Route.HOME) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = { Icon(t.icon, null) },
-                        label = { Text(t.label) },
+private fun Shell(
+    nav: androidx.navigation.NavHostController,
+    me: Me,
+    entries: List<Entry>,
+    current: String,
+    go: (String) -> Unit,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    val drawer = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val repo = repository()
+    ModalNavigationDrawer(
+        drawerState = drawer,
+        drawerContent = {
+            ModalDrawerSheet {
+                Row(
+                    Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primary).padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.2f), CircleShape), contentAlignment = Alignment.Center) {
+                        Text(initials(me.name), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge)
+                    }
+                    Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                        Text(me.name, color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleSmall)
+                        Text(if (me.isAdmin) "Administrador" else me.profileName ?: "Usuário", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.bodySmall)
+                    }
+                    IconButton(onClick = { scope.launch { drawer.close(); repo.logout() } }) {
+                        Icon(Icons.AutoMirrored.Outlined.Logout, "Sair", tint = MaterialTheme.colorScheme.onPrimary)
+                    }
+                }
+                Spacer(Modifier.padding(4.dp))
+                entries.forEach { e ->
+                    NavigationDrawerItem(
+                        label = { Text(e.label) }, icon = { Icon(e.icon, null) },
+                        selected = e.route == current,
+                        onClick = { scope.launch { drawer.close() }; if (e.route != current) go(e.route) },
+                        modifier = Modifier.padding(horizontal = 12.dp),
                     )
                 }
             }
         },
-    ) { pad -> content(pad) }
+    ) {
+        Scaffold(topBar = {
+            TopAppBar(
+                title = { Text(entries.firstOrNull { it.route == current }?.label ?: "CiclosERP") },
+                navigationIcon = { IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(Icons.Outlined.Menu, "Menu") } },
+            )
+        }) { pad -> content(pad) }
+    }
 }
 
-@Composable
-private fun AccountScreen(state: AuthState.LoggedIn, pad: PaddingValues) {
-    val repo = repository()
-    val scope = rememberCoroutineScope()
-    var confirm by remember { mutableStateOf(false) }
-    val me: Me = state.me
-    Column(Modifier.fillMaxSize().padding(pad).padding(16.dp)) {
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
-                Text(me.name, style = MaterialTheme.typography.titleLarge)
-                Text(me.email, style = MaterialTheme.typography.bodyMedium)
-                me.phone?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                Text(if (me.isAdmin) "Administrador" else me.profileName ?: "Usuário", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Servidor: ${state.serverUrl}${state.serverVersion?.let { " (v$it)" } ?: ""}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Button(onClick = { confirm = true }, modifier = Modifier.padding(top = 16.dp).fillMaxWidth()) {
-            Icon(Icons.AutoMirrored.Outlined.Logout, null); Text("  Sair")
-        }
-    }
-    if (confirm) AlertDialog(
-        onDismissRequest = { confirm = false },
-        title = { Text("Sair da conta?") },
-        text = { Text("Este aparelho vai pedir login de novo.") },
-        confirmButton = { TextButton(onClick = { confirm = false; scope.launch { repo.logout() } }) { Text("Sair") } },
-        dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancelar") } },
-    )
-}
+private fun initials(name: String): String =
+    name.trim().split(' ').filter { it.isNotEmpty() }.take(2).joinToString("") { it.first().uppercase() }.ifEmpty { "?" }
