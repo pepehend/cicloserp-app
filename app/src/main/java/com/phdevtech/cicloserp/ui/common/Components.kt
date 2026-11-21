@@ -15,7 +15,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Button
@@ -25,6 +28,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -140,4 +146,78 @@ fun OrderCard(o: OrderSummary, onClick: () -> Unit, showTechnician: Boolean = fa
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, modifier.padding(top = 8.dp, bottom = 4.dp), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+}
+
+/** Campo de busca das listas. */
+@Composable
+fun SearchField(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier) {
+    androidx.compose.material3.OutlinedTextField(
+        value = value, onValueChange = onChange, singleLine = true,
+        placeholder = { Text(hint) },
+        leadingIcon = { Icon(Icons.Outlined.Search, null) },
+        trailingIcon = { if (value.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { onChange("") }) { Icon(Icons.Outlined.Close, "Limpar busca") } },
+        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+
+/** Linha "rótulo: valor" das fichas. */
+@Composable
+fun InfoRow(label: String, value: String?, modifier: Modifier = Modifier) {
+    if (value.isNullOrBlank()) return
+    Row(modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+        Text(label, Modifier.width(110.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+/** Cartão numérico (totais do cliente, indicadores de orçamento). */
+@Composable
+fun StatCard(label: String, value: String, modifier: Modifier = Modifier, color: Color = Color.Unspecified, onClick: (() -> Unit)? = null) {
+    val m = if (onClick != null) modifier.clickable(onClick = onClick) else modifier
+    Card(m) {
+        Column(Modifier.padding(12.dp)) {
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = color)
+            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** Cartão com título, usado nas seções das fichas. */
+@Composable
+fun SectionCard(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Card(modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.padding(3.dp))
+            content()
+        }
+    }
+}
+
+/** Barra de topo das telas internas (voltar + título). */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun BackBar(title: String, onBack: () -> Unit) {
+    androidx.compose.material3.TopAppBar(
+        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        navigationIcon = { androidx.compose.material3.IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Voltar") } },
+    )
+}
+
+/** Carrega uma vez ao abrir e de novo quando a [key] muda; devolve o estado e o recarregamento. */
+class Loader<T>(private val scope: kotlinx.coroutines.CoroutineScope, private val fetch: suspend () -> T) {
+    var state by androidx.compose.runtime.mutableStateOf<Load<T>>(Load.Loading)
+    var refreshing by androidx.compose.runtime.mutableStateOf(false)
+    private var job: kotlinx.coroutines.Job? = null
+    fun load(pull: Boolean = false, debounceMs: Long = 0) {
+        job?.cancel()
+        if (pull) refreshing = true
+        job = scope.launch {
+            if (debounceMs > 0) kotlinx.coroutines.delay(debounceMs)
+            state = try { Load.Ok(fetch()) } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {
+                Load.Error(e.message ?: "Erro ao carregar")
+            }
+            refreshing = false
+        }
+    }
 }

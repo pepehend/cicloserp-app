@@ -23,7 +23,15 @@ Módulo de **ordens de serviço / técnico**, espelhando o app do técnico do si
 - Relatório: questionários com os 12 tipos de pergunta e perguntas condicionais (mesma lógica do servidor), fotos (câmera ou galeria, reduzidas antes de enviar), relato, km e assinatura.
 - Depois do check-out, no celular a OS fica só para consulta (igual ao app web).
 
-Ainda não existe: orçamentos, vendas, produtos, clientes, compras, financeiro, notas e relatórios.
+Navegação por **menu lateral** (como o app do técnico do sistema web), conforme as permissões do usuário, sobre as mesmas tabelas do `ciclos-erp`:
+
+- **Clientes** (`customers`): lista com busca e "Mostrar inativos"; ficha com total comprado, lucro, ticket médio, o que mais compra, portal e equipamentos.
+- **Orçamentos** (`quotes`): indicadores do mês (tocar filtra por status), busca, visão Lista ou Kanban (somente leitura) e orçamento completo com itens e custos.
+- **Produtos** e **Serviços** (`products`): busca, estoque baixo, inativos.
+- **Equipamentos** (`equipments`) e **Minha conta**.
+- Início com atalhos (Agenda, Clientes, Orçamento, Produto).
+
+Ainda não existe (só consulta; criar/editar segue pelo sistema web): vendas, compras, financeiro, notas e relatórios.
 
 ## Estrutura
 
@@ -32,7 +40,7 @@ data/api/ApiClient.kt        OkHttp: Bearer token, erros da API, endereço do se
 data/CiclosRepository.kt     rotas usadas (token_login, tech_home, tech_tasks, service_orders, service_order_detail, …)
 data/model/                  modelos e QuestionLogic (condicionais, igual ao PHP)
 data/SessionStore.kt         DataStore com servidor e token
-ui/                          Compose: login, início, agenda, ordens, ficha da OS e relatório
+ui/                          Compose: login, menu lateral, início, agenda, ordens, clientes, orçamentos, produtos/serviços, equipamentos
 ```
 
 ## Rodar e testar
