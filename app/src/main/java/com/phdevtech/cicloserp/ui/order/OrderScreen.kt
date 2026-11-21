@@ -385,7 +385,7 @@ private fun ReportTab(o: OrderDetail, nav: OrderNav) {
                 Divider()
                 CheckRow(Icons.Outlined.Draw, "Assinar e enviar", o.signerName, signDone) { nav.onPage("assinar") }
                 Divider()
-                CheckRow(Icons.Outlined.Pause, "Pausas", if (o.hoursPause > 0) "${Fmt.duration(o.hoursPause)} em pausa" else null, null, tint = Red, warn = pausedNow) { nav.onPage("pausas") }
+                CheckRow(Icons.Outlined.Pause, "Controle de Horas", if (o.hoursPause > 0) "${Fmt.duration(o.hoursPause)} em pausa" else null, null, tint = Red, warn = pausedNow) { nav.onPage("pausas") }
             }
         }
         TkCard {
