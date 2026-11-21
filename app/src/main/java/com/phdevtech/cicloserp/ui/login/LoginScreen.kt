@@ -92,7 +92,8 @@ fun LoginScreen(notice: String?) {
             verticalArrangement = Arrangement.Center,
         ) {
             Column(Modifier.widthIn(max = 420.dp).fillMaxWidth()) {
-                Text("CiclosERP", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                com.phdevtech.cicloserp.ui.common.CiclosLogo(Modifier.height(48.dp))
+                Spacer(Modifier.height(8.dp))
                 Text("Ordens de serviço no celular", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(28.dp))
                 OutlinedTextField(
