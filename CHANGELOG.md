@@ -2,6 +2,18 @@
 
 O formato segue o [README](README.md#versão-do-app): `MAIOR.MENOR.CORREÇÃO`.
 
+## 0.7.0
+
+Servidor mínimo: CiclosERP 3.4.0 (o número da OS por empresa vem do CiclosERP 3.7.0; antes disso o app mostra o id).
+
+- A ficha da OS e os textos de compartilhar (WhatsApp) usam o número da OS da empresa, que começa em 1 em cada empresa.
+
+## 0.6.0
+
+Servidor mínimo: CiclosERP 3.4.0 (a empresa na Minha conta aparece com o CiclosERP 3.6.0, multiempresa).
+
+- Minha conta mostra a empresa do usuário. O login é o mesmo: o servidor descobre a empresa pelo e-mail, e todos os dados que o app mostra são só dela.
+
 ## 0.5.0
 
 Servidor mínimo: CiclosERP 3.4.0.

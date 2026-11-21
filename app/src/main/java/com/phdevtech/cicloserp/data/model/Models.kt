@@ -23,6 +23,8 @@ data class Me(
     val role: String,
     val profileName: String?,
     val permissions: Set<String>,
+    /** Empresa do usuário (CiclosERP 3.6.0+, multiempresa); servidor mais antigo não manda. */
+    val companyName: String? = null,
 ) {
     val isAdmin get() = role == "admin"
     fun can(perm: String) = isAdmin || perm in permissions
@@ -36,6 +38,7 @@ data class Me(
             role = o.str("role").orEmpty(),
             profileName = o.text("profile_name"),
             permissions = o.strList("permissions").toSet(),
+            companyName = o.obj("company")?.text("name"),
         )
     }
 }
@@ -184,6 +187,8 @@ data class HourRow(val label: String, val at: String, val userName: String?, val
 /** Ficha completa da OS (OrderExec::detail). */
 data class OrderDetail(
     val id: Int,
+    /** Número da OS na empresa (CiclosERP 3.7.0+; servidor antigo: igual ao id). */
+    val number: Int,
     val status: String,
     val statusLabel: String,
     val transitions: List<String>,
@@ -238,6 +243,7 @@ data class OrderDetail(
             val hours = root.obj("hours")
             return OrderDetail(
                 id = o.int("id") ?: 0,
+                number = o.int("number") ?: o.int("id") ?: 0,
                 status = o.str("status").orEmpty(),
                 statusLabel = o.text("status_label") ?: OrderStatus.label(o.str("status")),
                 transitions = o.strList("transitions"),
