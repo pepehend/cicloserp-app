@@ -63,3 +63,7 @@ A versão fica em `app/build.gradle.kts` (`versionName` e `versionCode`) e apare
 - Cada PR que muda o comportamento do app atualiza `versionName`, `versionCode` e o `CHANGELOG.md` no mesmo commit.
 
 O app exige o CiclosERP **3.4.0** ou mais novo no servidor (login por token); servidores mais antigos respondem "Este servidor ainda não aceita o aplicativo".
+
+## Multiempresa (CiclosERP 3.6.0)
+
+O sistema web guarda várias empresas no mesmo banco, cada uma isolada pelo `company_id`. Para o app nada muda no login: o e-mail é único no banco todo e o servidor descobre a empresa pelo usuário (um usuário pertence a uma empresa só). O token (`cer_…`) fica ligado ao usuário e, portanto, à empresa dele; todas as rotas devolvem só dados dela. `token_login` e `me` passam a trazer `company: {id, name, slug}` (o app mostra o nome em **Minha conta**; servidor mais antigo não manda e o app continua funcionando). O superadmin, que cria as empresas pelo sistema web, não usa o app (o servidor recusa o login dele aqui). Empresa desativada: o login e os tokens do app dela deixam de valer.

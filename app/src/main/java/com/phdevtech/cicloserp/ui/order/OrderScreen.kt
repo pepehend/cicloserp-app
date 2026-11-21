@@ -157,7 +157,7 @@ fun OrderScreen(me: Me, id: Int, nav: OrderNav) {
                     Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Column(Modifier.weight(1f)) {
                             Text(o.customerName, color = Web.text, fontSize = 20.25.sp, fontWeight = FontWeight.Bold)
-                            Text("Tarefa #${o.id}", color = Web.muted, fontSize = 13.sp)
+                            Text("Tarefa #${o.number}", color = Web.muted, fontSize = 13.sp)
                             Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 StatusTag(o.status, o.statusLabel)
                                 if (o.pending.isNotEmpty() && !o.isDone) PendingTag(o.pending.size)
@@ -169,7 +169,7 @@ fun OrderScreen(me: Me, id: Int, nav: OrderNav) {
                             }
                             if (nav.onEditWeb != null && !o.isDone && me.can("app.switch")) IconBtn(Icons.Outlined.Edit, "Editar na versão completa", size = 38.dp, onClick = nav.onEditWeb)
                             IconBtn(Icons.Outlined.Share, "Compartilhar", size = 38.dp) {
-                                val text = listOfNotNull("Tarefa #${o.id} · ${o.customerName}", o.description, o.publicUrl).joinToString("\n")
+                                val text = listOfNotNull("Tarefa #${o.number} · ${o.customerName}", o.description, o.publicUrl).joinToString("\n")
                                 ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }, null))
                             }
                         }

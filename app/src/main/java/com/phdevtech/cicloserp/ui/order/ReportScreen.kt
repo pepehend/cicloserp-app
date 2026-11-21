@@ -201,7 +201,7 @@ fun ReportScreen(me: Me, id: Int, onBack: () -> Unit, page: String = "relato") {
                             Spacer(Modifier.height(8.dp))
                             PillButton("Enviar pelo WhatsApp", {
                                 val phone = o.customerPhone.orEmpty().filter { it.isDigit() }.let { if (it.length >= 10) "55$it" else "" }
-                                ctx.startActivity(Intent(Intent.ACTION_VIEW, "https://wa.me/$phone?text=${android.net.Uri.encode("Ordem de serviço #${o.id}: ${o.publicUrl.orEmpty()}")}".toUri()))
+                                ctx.startActivity(Intent(Intent.ACTION_VIEW, "https://wa.me/$phone?text=${android.net.Uri.encode("Ordem de serviço #${o.number}: ${o.publicUrl.orEmpty()}")}".toUri()))
                             }, Modifier.fillMaxWidth(), icon = Icons.Outlined.Chat, enabled = !o.publicUrl.isNullOrBlank())
                         }
                     }

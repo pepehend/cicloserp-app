@@ -38,6 +38,7 @@ fun AccountScreen(state: AuthState.LoggedIn, pad: PaddingValues) {
             Column(Modifier.padding(16.dp)) {
                 Text(me.name, style = MaterialTheme.typography.titleLarge)
                 Text(me.email, style = MaterialTheme.typography.bodyMedium)
+                me.companyName?.let { Text("Empresa: $it", style = MaterialTheme.typography.bodyMedium) }
                 me.phone?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
                 Text(if (me.isAdmin) "Administrador" else me.profileName ?: "Usuário", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 val ctx = androidx.compose.ui.platform.LocalContext.current

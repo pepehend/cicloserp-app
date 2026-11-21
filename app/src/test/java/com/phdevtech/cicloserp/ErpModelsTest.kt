@@ -1,6 +1,7 @@
 package com.phdevtech.cicloserp
 
 import com.phdevtech.cicloserp.data.model.Customer
+import com.phdevtech.cicloserp.data.model.Me
 import com.phdevtech.cicloserp.data.model.Product
 import com.phdevtech.cicloserp.data.model.QuotesPage
 import kotlinx.serialization.json.Json
@@ -16,6 +17,12 @@ class ErpModelsTest {
     @Test fun customerAceitaNumerosComoTexto() {
         val c = Customer.from(obj("""{"id":"3","name":"Consumidor final","sales_count":"2","active":"1","city":"Arroio","state":"RS"}"""))
         assertEquals(3, c.id); assertEquals(2, c.salesCount); assertTrue(c.active); assertEquals("Arroio/RS", c.cityState)
+    }
+
+    @Test fun usuarioTrazAEmpresaQuandoOServidorManda() {
+        val m = Me.from(obj("""{"id":4,"name":"Ana","email":"ana@alfa.com","role":"admin","permissions":[],"company":{"id":1,"name":"Alfa Ltda","slug":"alfa-ltda"}}"""))
+        assertEquals("Alfa Ltda", m.companyName)
+        assertEquals(null, Me.from(obj("""{"id":5,"name":"Beto","email":"b@x.com","role":"membro","permissions":["ordens"]}""")).companyName)
     }
 
     @Test fun produtoComEstoqueBaixo() {
