@@ -50,3 +50,16 @@ ui/                          Compose: login, menu lateral, início, agenda, orde
 - Servidor local pelo emulador: `10.0.2.2:<porta>`.
 - **Android 17+**: servidor em rede local (`192.168.x.x`, `10.x.x.x`) exige a permissão `ACCESS_LOCAL_NETWORK`; o app pede no login. Servidor com domínio público não pede.
 - Testes unitários: `./gradlew :app:testDebugUnitTest`.
+
+## Versão do app
+
+A versão fica em `app/build.gradle.kts` (`versionName` e `versionCode`) e aparece em **Minha conta**. As regras seguem as do sistema web (`ciclos-erp`):
+
+- **Primeiro número (maior):** muda quando algo deixa de ser compatível (por exemplo, o app passa a exigir um CiclosERP mais novo).
+- **Segundo número (menor):** muda a cada funcionalidade nova. O terceiro volta a `0`.
+- **Terceiro número (correção):** muda a cada correção sem funcionalidade nova.
+- `versionCode = maior * 10000 + menor * 100 + correção` (a versão `0.5.0` tem `versionCode` 500). O Android exige que ele só aumente.
+- Enquanto o primeiro número for `0`, o app ainda está em construção.
+- Cada PR que muda o comportamento do app atualiza `versionName`, `versionCode` e o `CHANGELOG.md` no mesmo commit.
+
+O app exige o CiclosERP **3.4.0** ou mais novo no servidor (login por token); servidores mais antigos respondem "Este servidor ainda não aceita o aplicativo".
