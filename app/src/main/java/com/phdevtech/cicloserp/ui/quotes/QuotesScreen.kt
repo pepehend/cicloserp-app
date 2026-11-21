@@ -55,6 +55,7 @@ import com.phdevtech.cicloserp.ui.common.SearchField
 import com.phdevtech.cicloserp.ui.common.SectionCard
 import com.phdevtech.cicloserp.ui.common.repository
 import com.phdevtech.cicloserp.util.Fmt
+import kotlinx.coroutines.launch
 
 /** Cores dos status de sistema (QuoteStatuses::SYSTEM no servidor). */
 private fun quoteColor(code: String): Color = when (code) {
@@ -180,11 +181,13 @@ private fun Kanban(page: QuotesPage, onOpen: (Int) -> Unit) {
 
 /** Orçamento completo (GET quote): cliente, itens, custos adicionais e total. */
 @Composable
-fun QuoteScreen(id: Int, onBack: () -> Unit) {
+fun QuoteScreen(id: Int, onBack: () -> Unit, canStatus: Boolean = false) {
     val repo = repository()
     val scope = rememberCoroutineScope()
     val loader = remember(id) { Loader(scope) { repo.quote(id) } }
     LaunchedEffect(id) { loader.load() }
+    var pick by remember { mutableStateOf<Map<String, String>?>(null) }
+    var statusError by remember { mutableStateOf<String?>(null) }
     Scaffold(topBar = { BackBar("Orçamento #$id", onBack) }) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
             when (val s = loader.state) {
@@ -196,6 +199,8 @@ fun QuoteScreen(id: Int, onBack: () -> Unit) {
                         item {
                             Text(q.customer, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
                             Text(q.statusLabel, color = quoteColor(q.status))
+                            if (canStatus) androidx.compose.material3.OutlinedButton(onClick = { scope.launch { try { pick = repo.quotes(null, null).statuses; statusError = null } catch (e: Exception) { statusError = e.message } } }, Modifier.padding(top = 8.dp)) { Text("Alterar status") }
+                            statusError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                         }
                         item {
                             SectionCard("Dados") {
@@ -224,5 +229,25 @@ fun QuoteScreen(id: Int, onBack: () -> Unit) {
                 }
             }
         }
+    }
+    pick?.let { options ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pick = null },
+            title = { Text("Alterar status") },
+            text = {
+                Column {
+                    options.forEach { (code, name) ->
+                        Text(name, Modifier.fillMaxWidth().clickable {
+                            pick = null
+                            scope.launch {
+                                try { repo.setQuoteStatus(id, code); statusError = null; loader.load() } catch (e: Exception) { statusError = e.message }
+                            }
+                        }.padding(vertical = 12.dp), color = quoteColor(code))
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { androidx.compose.material3.TextButton({ pick = null }) { Text("Cancelar") } },
+        )
     }
 }

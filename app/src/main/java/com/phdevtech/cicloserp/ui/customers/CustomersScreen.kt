@@ -1,4 +1,6 @@
 package com.phdevtech.cicloserp.ui.customers
+import androidx.compose.material3.OutlinedButton
+import com.phdevtech.cicloserp.ui.common.AddButton
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.Spacer
 import com.phdevtech.cicloserp.ui.common.LabeledCheck
@@ -54,7 +56,7 @@ import com.phdevtech.cicloserp.util.Fmt
 
 /** Lista de clientes (GET customers): busca por nome, CNPJ/CPF, cidade, telefone ou e-mail. */
 @Composable
-fun CustomersScreen(onOpen: (Int) -> Unit, pad: PaddingValues) {
+fun CustomersScreen(onOpen: (Int) -> Unit, pad: PaddingValues, canAdd: Boolean = false, onNew: () -> Unit = {}) {
     val repo = repository()
     val scope = rememberCoroutineScope()
     var query by rememberSaveable { mutableStateOf("") }
@@ -64,6 +66,7 @@ fun CustomersScreen(onOpen: (Int) -> Unit, pad: PaddingValues) {
 
     Column(Modifier.fillMaxSize().padding(pad)) {
         PageHeader("Clientes", "Cadastre pelo CNPJ e os dados vêm da Receita Federal.")
+        if (canAdd) AddButton("Novo cliente", onNew)
         SearchCard(query, { query = it }, "Nome, CNPJ/CPF, cidade, telefone ou e-mail") {
             LabeledCheck(inactive, { inactive = it }, "Mostrar inativos")
         }
@@ -99,7 +102,7 @@ private fun CustomerCard(c: Customer, onClick: () -> Unit) {
 
 /** Ficha do cliente (GET customer + equipments): totais, dados, o que mais compra, portal e equipamentos. */
 @Composable
-fun CustomerScreen(id: Int, onBack: () -> Unit) {
+fun CustomerScreen(id: Int, onBack: () -> Unit, canEdit: Boolean = false, onEdit: () -> Unit = {}, canAddEquipment: Boolean = false, onNewEquipment: () -> Unit = {}) {
     val repo = repository()
     val scope = rememberCoroutineScope()
     val loader = remember(id) { Loader(scope) { repo.customer(id) } }
@@ -116,6 +119,7 @@ fun CustomerScreen(id: Int, onBack: () -> Unit) {
                             item {
                                 Text(d.customer.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
                                 Text(d.personType, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                if (canEdit) OutlinedButton(onClick = onEdit, Modifier.padding(top = 8.dp)) { Text("Editar cliente") }
                             }
                             item {
                                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -151,6 +155,7 @@ fun CustomerScreen(id: Int, onBack: () -> Unit) {
                             d.portalStatus?.let { p -> item { SectionCard("Portal do cliente") { Text(p) } } }
                             item {
                                 SectionCard("Equipamentos (${d.equipments.size})") {
+                                    if (canAddEquipment) OutlinedButton(onClick = onNewEquipment) { Text("Novo equipamento") }
                                     if (d.equipments.isEmpty()) Text("Nenhum equipamento.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     d.equipments.forEach { e ->
                                         Column(Modifier.padding(vertical = 4.dp)) {

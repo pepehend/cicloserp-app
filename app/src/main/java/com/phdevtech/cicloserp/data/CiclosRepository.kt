@@ -188,6 +188,34 @@ class CiclosRepository(private val api: ApiClient, private val store: SessionSto
     suspend fun quote(id: Int): QuoteDetail =
         QuoteDetail.from(api.get("quote", mapOf("id" to id)).asObj() ?: throw ApiException(0, "Orçamento não encontrado"))
 
+
+    // ---------------- Gravação dos cadastros (mesmas rotas e permissões do sistema web) ----------------
+
+    /** GET de um registro inteiro (customer, product…), com todos os campos para preencher o formulário. */
+    suspend fun raw(route: String, id: Int): JsonObject =
+        api.get(route, mapOf("id" to id)).asObj() ?: throw ApiException(0, "Registro não encontrado")
+
+    /** POST *_save: devolve o id gravado. Erros de validação voltam como ApiException (mensagem em português). */
+    suspend fun save(route: String, body: JsonObject): Int? = api.post(route, body).asObj()?.int("id")
+
+    /** POST *_delete: "excluido", "apagado" ou o que o servidor devolver (cadastro usado só é desativado). */
+    suspend fun delete(route: String, id: Int): String? =
+        api.post(route, buildJsonObject { put("id", id) }).asObj()?.text("result")
+
+    /** Dados do cadastro pelo CNPJ (Receita Federal). */
+    suspend fun cnpj(digits: String): JsonObject? = api.get("cnpj", mapOf("cnpj" to digits)).asObj()
+
+    /** Listas do formulário de OS: equipamentos e orçamentos do cliente, técnicos e tipos de tarefa. */
+    suspend fun orderForm(customerId: Int): JsonObject =
+        api.get("service_order_form", mapOf("customer_id" to customerId)).asObj() ?: JsonObject(emptyMap())
+
+    suspend fun equipmentRaw(id: Int): JsonObject =
+        api.get("equipments", mapOf("all" to 1)).let { it.asObj()?.arr("rows") ?: it.asArr() }
+            .mapNotNull { it.asObj() }.firstOrNull { it.int("id") == id } ?: throw ApiException(0, "Equipamento não encontrado")
+
+    suspend fun setQuoteStatus(id: Int, status: String) {
+        api.post("quote_status", buildJsonObject { put("id", id); put("status", status) })
+    }
     private fun deviceName(): String {
         val m = Build.MODEL.orEmpty()
         val brand = Build.MANUFACTURER.orEmpty().replaceFirstChar { it.uppercase() }

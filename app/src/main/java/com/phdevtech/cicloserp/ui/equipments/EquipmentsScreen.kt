@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Spacer
 import com.phdevtech.cicloserp.ui.common.SearchCard
 import com.phdevtech.cicloserp.ui.common.PageHeader
 
+import androidx.compose.foundation.clickable
+import com.phdevtech.cicloserp.ui.common.AddButton
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -41,7 +43,7 @@ import com.phdevtech.cicloserp.util.Fmt
 
 /** Equipamentos dos clientes (GET equipments, tabela equipments). */
 @Composable
-fun EquipmentsScreen(pad: PaddingValues) {
+fun EquipmentsScreen(pad: PaddingValues, canAdd: Boolean = false, onNew: () -> Unit = {}, onOpen: ((Equipment) -> Unit)? = null) {
     val repo = repository()
     val scope = rememberCoroutineScope()
     var query by rememberSaveable { mutableStateOf("") }
@@ -50,6 +52,7 @@ fun EquipmentsScreen(pad: PaddingValues) {
 
     Column(Modifier.fillMaxSize().padding(pad)) {
         PageHeader("Equipamentos", "Equipamentos dos seus clientes, com série e garantia.")
+        if (canAdd) AddButton("Novo equipamento", onNew)
         SearchCard(query, { query = it }, "Nome, marca, modelo, série ou cliente")
         Spacer(Modifier.height(8.dp))
         PullToRefreshBox(loader.refreshing, { loader.load(pull = true) }, Modifier.fillMaxSize()) {
@@ -58,7 +61,7 @@ fun EquipmentsScreen(pad: PaddingValues) {
                 is Load.Error -> ErrorBox(s.message, { loader.load() })
                 is Load.Ok -> LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (s.data.isEmpty()) item { EmptyBox("Nenhum equipamento encontrado.") }
-                    items(s.data, key = { it.id }) { EquipmentCard(it) }
+                    items(s.data, key = { it.id }) { e -> EquipmentCard(e, if (onOpen != null) ({ onOpen(e) }) else null) }
                 }
             }
         }
@@ -66,8 +69,8 @@ fun EquipmentsScreen(pad: PaddingValues) {
 }
 
 @Composable
-private fun EquipmentCard(e: Equipment) {
-    AppCard(Modifier.fillMaxWidth()) {
+private fun EquipmentCard(e: Equipment, onClick: (() -> Unit)?) {
+    AppCard(Modifier.fillMaxWidth().let { if (onClick != null) it.clickable(onClick = onClick) else it }) {
         Column(Modifier.padding(14.dp)) {
             Text(e.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             InfoRow("Cliente", e.customerName)

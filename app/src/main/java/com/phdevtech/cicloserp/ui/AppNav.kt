@@ -61,6 +61,10 @@ import com.phdevtech.cicloserp.ui.common.repository
 import com.phdevtech.cicloserp.ui.customers.CustomerScreen
 import com.phdevtech.cicloserp.ui.customers.CustomersScreen
 import com.phdevtech.cicloserp.ui.equipments.EquipmentsScreen
+import com.phdevtech.cicloserp.ui.forms.CustomerFormScreen
+import com.phdevtech.cicloserp.ui.forms.EquipmentFormScreen
+import com.phdevtech.cicloserp.ui.forms.NewOrderScreen
+import com.phdevtech.cicloserp.ui.forms.ProductFormScreen
 import com.phdevtech.cicloserp.ui.home.HomeScreen
 import com.phdevtech.cicloserp.ui.order.OrderScreen
 import com.phdevtech.cicloserp.ui.order.PhotosScreen
@@ -82,6 +86,13 @@ object Route {
     const val SERVICES = "servicos"
     const val EQUIPMENTS = "equipamentos"
     const val ACCOUNT = "conta"
+    const val CUSTOMER_NEW = "cliente/novo"
+    const val CUSTOMER_EDIT = "cliente/{id}/editar"
+    const val PRODUCT_NEW = "produto/novo/{type}"
+    const val PRODUCT_EDIT = "produto/{id}/editar"
+    const val EQUIPMENT_NEW = "equipamento/novo/{cid}"
+    const val EQUIPMENT_EDIT = "equipamento/{id}/editar"
+    const val ORDER_NEW = "os/nova/{cid}"
     const val CUSTOMER = "cliente/{id}"
     const val QUOTE = "orcamento/{id}"
     const val ORDER = "os/{id}"
@@ -122,20 +133,47 @@ fun LoggedInApp(state: AuthState.LoggedIn) {
     val openOrder: (Int) -> Unit = { nav.navigate(Route.order(it)) }
 
     NavHost(nav, startDestination = Route.HOME) {
-        composable(Route.HOME) { Shell(nav, me, entries, Route.HOME, go) { pad -> HomeScreen(me, openOrder, pad, onNavigate = go, can = { me.can(it) }) } }
-        composable(Route.AGENDA) { Shell(nav, me, entries, Route.AGENDA, go) { pad -> AgendaScreen(me, openOrder, pad) } }
+        composable(Route.HOME) { Shell(nav, me, entries, Route.HOME, go) { pad -> HomeScreen(me, openOrder, pad, onNavigate = { r -> if (r.startsWith("os/")) nav.navigate(r) else go(r) }, can = { me.can(it) }) } }
+        composable(Route.AGENDA) { Shell(nav, me, entries, Route.AGENDA, go) { pad -> AgendaScreen(me, openOrder, pad, onNewTask = if (me.can("ordens.add")) ({ nav.navigate("os/nova/0") }) else null) } }
         composable(Route.ORDERS) { Shell(nav, me, entries, Route.ORDERS, go) { pad -> OrdersScreen(openOrder, pad) } }
-        composable(Route.CUSTOMERS) { Shell(nav, me, entries, Route.CUSTOMERS, go) { pad -> CustomersScreen({ nav.navigate("cliente/$it") }, pad) } }
+        composable(Route.CUSTOMERS) { Shell(nav, me, entries, Route.CUSTOMERS, go) { pad -> CustomersScreen({ nav.navigate("cliente/$it") }, pad, me.can("clientes.add"), { nav.navigate(Route.CUSTOMER_NEW) }) } }
         composable(Route.QUOTES) { Shell(nav, me, entries, Route.QUOTES, go) { pad -> QuotesScreen({ nav.navigate("orcamento/$it") }, pad) } }
-        composable(Route.PRODUCTS) { Shell(nav, me, entries, Route.PRODUCTS, go) { pad -> ProductsScreen(service = false, pad = pad) } }
-        composable(Route.SERVICES) { Shell(nav, me, entries, Route.SERVICES, go) { pad -> ProductsScreen(service = true, pad = pad) } }
-        composable(Route.EQUIPMENTS) { Shell(nav, me, entries, Route.EQUIPMENTS, go) { pad -> EquipmentsScreen(pad) } }
+        composable(Route.PRODUCTS) { Shell(nav, me, entries, Route.PRODUCTS, go) { pad -> ProductsScreen(false, pad, me.can("produtos.add"), { nav.navigate("produto/novo/produto") }, if (me.can("produtos.edit")) ({ p -> nav.navigate("produto/${p.id}/editar") }) else null) } }
+        composable(Route.SERVICES) { Shell(nav, me, entries, Route.SERVICES, go) { pad -> ProductsScreen(true, pad, me.can("servicos.add"), { nav.navigate("produto/novo/servico") }, if (me.can("servicos.edit")) ({ p -> nav.navigate("produto/${p.id}/editar") }) else null) } }
+        composable(Route.EQUIPMENTS) { Shell(nav, me, entries, Route.EQUIPMENTS, go) { pad -> EquipmentsScreen(pad, me.can("equipamentos.add"), { nav.navigate("equipamento/novo/0") }, if (me.can("equipamentos.edit")) ({ e -> nav.navigate("equipamento/${e.id}/editar") }) else null) } }
         composable(Route.ACCOUNT) { Shell(nav, me, entries, Route.ACCOUNT, go) { pad -> AccountScreen(state, pad) } }
+        composable(Route.CUSTOMER_NEW) {
+            CustomerFormScreen(null, false, { nav.popBackStack() }, { nav.popBackStack() }, { nav.popBackStack() })
+        }
+        composable(Route.CUSTOMER_EDIT, listOf(navArgument("id") { type = NavType.IntType })) { e ->
+            CustomerFormScreen(e.arguments!!.getInt("id"), me.can("clientes.delete"), { nav.popBackStack() }, { nav.popBackStack() }, { nav.popBackStack(Route.CUSTOMERS, false) })
+        }
+        composable(Route.PRODUCT_NEW, listOf(navArgument("type") { type = NavType.StringType })) { e ->
+            val service = e.arguments!!.getString("type") == "servico"
+            ProductFormScreen(null, service, false, { nav.popBackStack() }, { nav.popBackStack() }, { nav.popBackStack() })
+        }
+        composable(Route.PRODUCT_EDIT, listOf(navArgument("id") { type = NavType.IntType })) { e ->
+            ProductFormScreen(e.arguments!!.getInt("id"), false, me.can("produtos.delete") || me.can("servicos.delete"), { nav.popBackStack() }, { nav.popBackStack() }, { nav.popBackStack() })
+        }
+        composable(Route.EQUIPMENT_NEW, listOf(navArgument("cid") { type = NavType.IntType })) { e ->
+            EquipmentFormScreen(null, e.arguments!!.getInt("cid").takeIf { it > 0 }, false, { nav.popBackStack() }, { nav.popBackStack() }, { nav.popBackStack() })
+        }
+        composable(Route.EQUIPMENT_EDIT, listOf(navArgument("id") { type = NavType.IntType })) { e ->
+            EquipmentFormScreen(e.arguments!!.getInt("id"), null, me.can("equipamentos.delete"), { nav.popBackStack() }, { nav.popBackStack() }, { nav.popBackStack() })
+        }
+        composable(Route.ORDER_NEW, listOf(navArgument("cid") { type = NavType.IntType })) { e ->
+            NewOrderScreen(me.id, e.arguments!!.getInt("cid").takeIf { it > 0 }, { nav.popBackStack() }) { id ->
+                nav.popBackStack(); if (id != null) nav.navigate(Route.order(id))
+            }
+        }
         composable(Route.CUSTOMER, listOf(navArgument("id") { type = NavType.IntType })) { e ->
-            CustomerScreen(e.arguments!!.getInt("id"), onBack = { nav.popBackStack() })
+            val id = e.arguments!!.getInt("id")
+            CustomerScreen(id, onBack = { nav.popBackStack() },
+                canEdit = me.can("clientes.edit"), onEdit = { nav.navigate("cliente/$id/editar") },
+                canAddEquipment = me.can("equipamentos.add"), onNewEquipment = { nav.navigate("equipamento/novo/$id") })
         }
         composable(Route.QUOTE, listOf(navArgument("id") { type = NavType.IntType })) { e ->
-            QuoteScreen(e.arguments!!.getInt("id"), onBack = { nav.popBackStack() })
+            QuoteScreen(e.arguments!!.getInt("id"), onBack = { nav.popBackStack() }, canStatus = me.can("orcamentos.status"))
         }
         composable(Route.ORDER, listOf(navArgument("id") { type = NavType.IntType })) { e ->
             val id = e.arguments!!.getInt("id")

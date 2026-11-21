@@ -111,7 +111,7 @@ class AgendaViewModel(private val repo: CiclosRepository) : ViewModel() {
 
 /** Agenda da semana (GET tech_tasks): cartão com os dias (domingo a sábado), filtros de situação com contagem e as OS do dia. */
 @Composable
-fun AgendaScreen(me: Me, onOpenOrder: (Int) -> Unit, contentPadding: PaddingValues) {
+fun AgendaScreen(me: Me, onOpenOrder: (Int) -> Unit, contentPadding: PaddingValues, onNewTask: (() -> Unit)? = null) {
     val vm = appViewModel { AgendaViewModel(it) }
     val ui by vm.ui.collectAsStateWithLifecycle()
     val refreshing by vm.refreshing.collectAsStateWithLifecycle()
@@ -178,7 +178,10 @@ fun AgendaScreen(me: Me, onOpenOrder: (Int) -> Unit, contentPadding: PaddingValu
                 }
             }
             item {
-                SyncButton(Modifier.fillMaxWidth()) { vm.load(pull = true) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (onNewTask != null) Button(onClick = onNewTask, modifier = Modifier.weight(1f)) { Icon(Icons.Outlined.Add, null); Text(" Nova Tarefa") }
+                    SyncButton(Modifier.weight(1f)) { vm.load(pull = true) }
+                }
             }
             when (val r = ui.rows) {
                 Load.Loading -> item { LoadingBox(Modifier.height(160.dp)) }

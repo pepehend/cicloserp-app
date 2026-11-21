@@ -124,10 +124,11 @@ fun HomeScreen(
                         // Atalhos: Nova Tarefa (agenda), Clientes, Orçamento, Produto
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             listOf(
-                                Shortcut("Agenda", Icons.Outlined.Add, Purple, "agenda", "ordens"),
+                                Shortcut("Nova Tarefa", Icons.Outlined.Add, Purple, "os/nova/0", "ordens.add"),
                                 Shortcut("Clientes", Icons.Outlined.Group, Blue, "clientes", "clientes"),
                                 Shortcut("Orçamento", Icons.Outlined.Description, Orange, "orcamentos", "orcamentos"),
                                 Shortcut("Produto", Icons.Outlined.Inventory2, Green, "produtos", "produtos"),
+                                Shortcut("Agenda", Icons.Outlined.CalendarMonth, Blue, "agenda", "ordens"),
                             ).filter { can(it.perm) }.forEach { sc ->
                                 AppCard(Modifier.width(84.dp).clickable { onNavigate(sc.route) }) {
                                     Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {

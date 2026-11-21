@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Search
@@ -278,5 +279,14 @@ fun SearchCard(value: String, onChange: (String) -> Unit, hint: String, modifier
             )
             extra()
         }
+    }
+}
+
+/** Botão vermelho "+ Novo ..." do topo das listas. */
+@Composable
+fun AddButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Button(onClick, modifier.padding(horizontal = 16.dp, vertical = 6.dp), shape = RoundedCornerShape(12.dp)) {
+        Icon(Icons.Outlined.Add, null)
+        Text(" $label")
     }
 }

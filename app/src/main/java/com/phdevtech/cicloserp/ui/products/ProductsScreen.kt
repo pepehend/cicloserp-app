@@ -5,6 +5,8 @@ import com.phdevtech.cicloserp.ui.common.LabeledCheck
 import com.phdevtech.cicloserp.ui.common.SearchCard
 import com.phdevtech.cicloserp.ui.common.PageHeader
 
+import androidx.compose.foundation.clickable
+import com.phdevtech.cicloserp.ui.common.AddButton
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -46,7 +48,7 @@ import com.phdevtech.cicloserp.util.Fmt
 
 /** Produtos e serviços (GET products, tabela products). [service] = lista de serviços. */
 @Composable
-fun ProductsScreen(service: Boolean, pad: PaddingValues, onOpen: (Product) -> Unit = {}) {
+fun ProductsScreen(service: Boolean, pad: PaddingValues, canAdd: Boolean = false, onNew: () -> Unit = {}, onOpen: ((Product) -> Unit)? = null) {
     val repo = repository()
     val scope = rememberCoroutineScope()
     var query by rememberSaveable { mutableStateOf("") }
@@ -61,6 +63,7 @@ fun ProductsScreen(service: Boolean, pad: PaddingValues, onOpen: (Product) -> Un
             if (service) "Serviços" else "Produtos",
             if (service) "Serviços que você presta, sem controle de estoque." else "Produtos que você vende e controla no estoque.",
         )
+        if (canAdd) AddButton(if (service) "Novo serviço" else "Novo produto", onNew)
         SearchCard(query, { query = it }, if (service) "Nome ou código do serviço" else "Nome, marca, código (SKU, fabricante ou referência)") {
             Row {
                 if (!service) LabeledCheck(low, { low = it }, "Abaixo do mínimo")
@@ -74,7 +77,7 @@ fun ProductsScreen(service: Boolean, pad: PaddingValues, onOpen: (Product) -> Un
                 is Load.Error -> ErrorBox(s.message, { loader.load() })
                 is Load.Ok -> LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (s.data.isEmpty()) item { EmptyBox(if (service) "Nenhum serviço encontrado." else "Nenhum produto encontrado.") }
-                    items(s.data, key = { it.id }) { p -> ProductCard(p) }
+                    items(s.data, key = { it.id }) { p -> ProductCard(p, if (onOpen != null) ({ onOpen(p) }) else null) }
                 }
             }
         }
@@ -82,8 +85,8 @@ fun ProductsScreen(service: Boolean, pad: PaddingValues, onOpen: (Product) -> Un
 }
 
 @Composable
-private fun ProductCard(p: Product) {
-    AppCard(Modifier.fillMaxWidth()) {
+private fun ProductCard(p: Product, onClick: (() -> Unit)?) {
+    AppCard(Modifier.fillMaxWidth().let { if (onClick != null) it.clickable(onClick = onClick) else it }) {
         Column(Modifier.padding(14.dp)) {
             Row {
                 Text(p.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
