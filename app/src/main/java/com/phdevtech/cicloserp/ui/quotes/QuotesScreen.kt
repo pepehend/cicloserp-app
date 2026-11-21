@@ -145,7 +145,7 @@ private fun QuoteCard(q: QuoteRow, page: QuotesPage, modifier: Modifier = Modifi
     AppCard(modifier.fillMaxWidth().clickable(onClick = onClick)) {
         Column(Modifier.padding(14.dp)) {
             Row {
-                Text("#${q.id}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text("#${q.number}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Box(Modifier.weight(1f))
                 val c = quoteColor(q.status)
                 Text(page.statuses[q.status] ?: q.status, Modifier.background(c.copy(alpha = 0.15f), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp),
@@ -188,7 +188,7 @@ fun QuoteScreen(id: Int, onBack: () -> Unit, canStatus: Boolean = false) {
     LaunchedEffect(id) { loader.load() }
     var pick by remember { mutableStateOf<Map<String, String>?>(null) }
     var statusError by remember { mutableStateOf<String?>(null) }
-    Scaffold(topBar = { BackBar("Orçamento #$id", onBack) }) { pad ->
+    Scaffold(topBar = { BackBar("Orçamento #${(loader.state as? Load.Ok)?.data?.number ?: id}", onBack) }) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
             when (val s = loader.state) {
                 Load.Loading -> LoadingBox()
